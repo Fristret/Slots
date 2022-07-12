@@ -1,0 +1,5 @@
+package Game
+
+object RPG {
+
+}
