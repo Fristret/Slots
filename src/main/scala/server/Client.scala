@@ -17,12 +17,18 @@ object Client extends IOApp {
   private def printLine(string: String = ""): IO[Unit] = IO(println(string))
 
   override def run(args: List[String]): IO[ExitCode] = {
-    val clientResource: Resource[IO, WSConnectionHighLevel[IO]] = Resource.eval(IO(HttpClient.newHttpClient()))
+    val clientResource: Resource[IO, WSConnectionHighLevel[IO]] = Resource.eval(IO(HttpClient.newHttpClient(
+
+
+    )))
       .flatMap(JdkWSClient[IO](_).connectHighLevel(WSRequest(uri)))
+
 
     clientResource.use { client =>
       for {
-        _ <- client.send(WSFrame.Text("Hello, world!"))
+        login <- IO(scala.io.StdIn.readLine())
+        password <- IO(scala.io.StdIn.readLine())
+        _ <- client.send(WSFrame.Text(s"""{"login": $login, "password": $password}"""))
         _ <- client.receiveStream.collectFirst {
           case WSFrame.Text(s, _) => s
         }.compile.string >>= printLine

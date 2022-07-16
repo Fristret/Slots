@@ -25,195 +25,107 @@ object Server extends IOApp {
   import MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  //curl "localhost:9001/connection"
-  private val connectionRoute = HttpRoutes.of[IO] {
-    case GET -> Root / "connection" => Ok(s"Суксессфуль коннектионе")
-  }
-
-  //websocat "ws://127.0.0.1:9001/message"
+  //websocat ws://127.0.0.1:9001/message
   private def messageRoute(topic: Topic[IO, String], ref: Ref[IO, Map[String, Player]]): HttpRoutes[IO] = {
 
-    def doBet(bet: Bet): String = s"Correct Bet"
-    def getBalance = s"Your Balance"
-    def createPlayer(player: Player): String = s"Player created"
-    def verifyPlayer(player: Player): String = s"Hello, ${player.login}"
+    //Я думаю, что методы можно в отдельный объект переместить и оставить тут только Route
 
+    def doBet(bet: Bet): String = s"Correct Bet" //написать Игру
 
+    def getBalance = s"Your Balance" //разобраться с Doobie
 
+    def registration(player: Player): IO[String] = {
+      player.message.message match {
+        case "NewPlayer" => createPlayer(player)
+        case "LogIn" => verifyPlayer(player)
+      }
+    }
+
+    def createPlayer(player: Player): IO[String] = {
+      ref.modify {
+        map =>
+          map.get(player.login) match {
+            case None => (map + (player.login -> player), s"Welcome, ${player.login}")
+            case Some(x) => (map, s"Player ${x.login} exists")
+          }
+      }
+    }
+
+    def verifyPlayer(player: Player): IO[String] = {
+      ref.modify {
+        map =>
+          map.get(player.login) match {
+            case None => (map, s"Player ${player.login} don't exist")
+            case Some(x) => if (x.password == player.password) (map, s"Welcome, ${player.login}")
+            else (map, s"Wrong password")
+          }
+      }
+    }
 
 
     HttpRoutes.of[IO] {
-      case GET -> Root / "message" =>
+      case req@POST -> Root / "message" =>
 
         def toClient: Stream[IO, WebSocketFrame] = topic
           .subscribe(3)
           .map(WebSocketFrame.Text(_))
 
-        //вход Balance: balance
-        //вход Bet: bet {"amountBet": 20, "multiple": 5}
-        //вход newPLayer: newPlayer {"login": "player123", "password": "dddd"}
+        //вход Bet: {"message": "bet", "login": "player123", "password": "dddd"}  //как должен быть
         //вход logIn: logIn {"login": "player123", "password": "dddd"}
 
         def fromClient: Pipe[IO, WebSocketFrame, Unit] = topic
           .publish
           .compose[Stream[IO, WebSocketFrame]](_.collect {
-            case WebSocketFrame.Text(message, _) => message.trim.split(" ").head match {
-              case "bet" => parse(message.split("bet").mkString.trim).flatMap(_.as[Bet]).flatMap(bet => Right(doBet(bet))) match {
-                case Right(value) => value
-                case Left(value) => s"Cringe $value"
-              }
-              case "balance" => getBalance
-              case "newPlayer" => parse(message.split("newPlayer", 2).mkString.trim).flatMap(_.as[Player]).flatMap(player => Right(createPlayer(player))) match {
-                case Right(value) => value
-                case Left(value) => s"Cringe $value"
-              }
-              case "logIn" => parse(message.split("logIn", 2).mkString.trim).flatMap(_.as[Player]).flatMap(player => Right(verifyPlayer(player)))match {
-                case Right(value) => value
-                case Left(value) => s"Cringe $value"
-              }
-              case _ => "try better"
-            }
+            case WebSocketFrame.Text(message, _) => {
+              for {
+                json <- parse(message)
+                message <- json.as[Message]
+                result <- message.message match {
+                  case "bet" => for {
+                    bet <- json.as[Bet]
+                  } yield doBet(bet)
+                  case "balance" => Right(getBalance)
+                  case _ => Left("try better")
+                }
+              } yield result
+            }.getOrElse("Wrong")
           }
           )
 
+        //вход NewPlayer: {"message": "NewPlayer", "login": "player123", "password": "dddd"}
+        //вход LogIn: {"message": "LogIn", "login": "player123", "password": "dddd"}
 
 
-        for {
-          _ <- topic.publish1("""|Выберите функцию:
-            |1. Сделать ставку (bet)
-            |2. Посмотреть баланс (balance)
-            |3. Новый игрок (newPlayer)
-            |4. Войти (logIn)
-            |""".stripMargin)
-          response <- WebSocketBuilder[IO].build(receive = fromClient, send = toClient)
-        } yield response
+        val playerReq = req.as[Player]
+        playerReq.flatMap(player => Ok(registration(player))).handleErrorWith(e => BadRequest(e.getMessage)) match {
+          case Ok =>
+            for {
+              _ <- topic.publish1(
+                """|Выберите функцию:
+                   |1. Сделать ставку (bet)
+                   |2. Посмотреть баланс (balance)
+                   |""".stripMargin)
+              response <- WebSocketBuilder[IO].build(receive = fromClient, send = toClient)
+            } yield response
+          case BadRequest => BadRequest("Wrong body")
+        }
     }
   }
 
-//private def userIdentifierRoute(topic: Topic[IO, String], ref: Ref[IO, Map[String, Player]], refLogin: Ref[IO, Login]) =
-//      HttpRoutes.of[IO] {
-//
-//        //curl -X POST "localhost:9001/player" -H "Content-Type: application/json" -d '{"login": masana, "password": 123fdsf1315}'
-//        case req @ POST -> Root / "player" =>
-//
-//          def verifyPlayer(player: Player): IO[String] = {
-//            for {
-//              playerReal <- ref.modify { playerRef =>
-//                val verify = playerRef.get(player.login.login)
-//                verify match {
-//                  case None => for{
-//                    _ <- println("No existing player. Create?")
-//                    _ <- WebSocketBuilder[IO].build(
-//                      receive = topic.publish
-//                        .compose[Stream[IO, WebSocketFrame]](_.collect {
-//                          case WebSocketFrame.Text(message, _) => message.trim match {
-//                            case "1" => createPlayer(player)
-//                            case "2" => balance()
-//                          }
-//                    )
-//                    playerRef + (player.login.login -> player)
-//                  }, s"Пользователь создан")
-//                  case Some(playerExist) if (playerExist.password != player.password) => (playerRef, "Wrong password")
-//                  case Some(playerExist) => (playerRef, s"Добро пожаловать, ${playerExist.login.login}")
-//                }
-//              }
-//              _ <- refLogin.modify()
-//              _ <- topic.publish1(playerReal)
-//            } yield playerReal
-//          }
-//
-//          req.as[Player].flatMap { player =>
-//              Ok(verifyPlayer(player))
-//          }.handleErrorWith(e => BadRequest(s"Ха, лох, ${e.getMessage}"))
-//      }
-
-
-  private[server] def httpApp(topic: Topic[IO, String], ref: Ref[IO, Map[String, Player]], refLogin: Ref[IO, Login]) = {
-    messageRoute(topic, ref) <+> connectionRoute
-//    <+> userIdentifierRoute(topic, ref, login)
+  private[server] def httpApp(topic: Topic[IO, String], ref: Ref[IO, Map[String, Player]]) = {
+    messageRoute(topic, ref)
   }.orNotFound
 
   override def run(args: List[String]): IO[ExitCode] = {
     for {
       ref <- Ref[IO].of(Map.empty[String, Player])
-      refLogin <- Ref[IO].of(Login(""))
       topic <- Topic[IO, String]("Welcome. Write your request")
-//      httpAp <- httpApp(topic, ref)
       _ <- BlazeServerBuilder[IO](ExecutionContext.global)
         .bindHttp(port = 9001, host = "localhost")
-        .withHttpApp(httpApp(topic, ref, refLogin))
+        .withHttpApp(httpApp(topic, ref))
         .serve
         .compile
         .drain
-    }yield ExitCode.Success
+    } yield ExitCode.Success
+  }
 }
-
-}
-//object WebSocketClient extends IOApp {
-//
-//  private val uri = uri"ws://localhost:9002/chat"
-//
-//  private def printLine(string: String = ""): IO[Unit] = IO(println(string))
-//
-//  override def run(args: List[String]): IO[ExitCode] = {
-//    val clientResource = Resource.eval(IO(HttpClient.newHttpClient()))
-//      .flatMap(JdkWSClient[IO](_).connectHighLevel(WSRequest(uri)))
-//
-//    clientResource.use { client =>
-//      for {
-//        _ <- client.send(WSFrame.Text("Hello, world!"))
-//        _ <- client.receiveStream.collectFirst {
-//          case WSFrame.Text(s, _) => s
-//        }.compile.string >>= printLine
-//      } yield ExitCode.Success
-//    }
-//  }
-//}
-
-//        def updateBalance(transaction: Transaction): IO[Json] = {
-//          for {
-//            newBalance <- ref.modify { balance =>
-//              val oldAmount: BigDecimal = balance.get(transaction.playerId) match {
-//                case Some(Balance(playerId, oldAmount, updatedAt)) => oldAmount
-//                case None => 0
-//              }
-//              val newAmount: BigDecimal = oldAmount + transaction.deltaAmount
-//              val newBalance = Balance(transaction.playerId, newAmount, Instant.now())
-//              (balance + (transaction.playerId -> newBalance), newBalance)
-//            }
-//            _ <- topic.publish1(Some(newBalance))
-//          } yield newBalance.asJson
-//        }
-//
-//        req.as[Transaction].flatMap {
-//          transaction =>
-//            Accepted(updateBalance(transaction))
-//        }.handleErrorWith(e => BadRequest(e.getMessage))
-
-//      case GET -> Root / "balance" =>
-//        for {
-//          response <- WebSocketBuilder[IO].build(
-//            receive = topic.publish.compose[Stream[IO, WebSocketFrame]](
-//              _
-//                .collect {
-//                  case WebSocketFrame.Text(_, _) => None
-//                }),
-//            send = topic.subscribe(3).filter(_.nonEmpty).map {
-//              case Some(balance) => WebSocketFrame.Text(balance.asJson.noSpaces)
-//              case _ => WebSocketFrame.Text("Error")
-//            }
-//          )
-//        } yield response
-//    }.orNotFound
-// }
-
-//  override def run(args: List[String]): IO[ExitCode] =
-//    for {
-//      httpApp <- httpApp
-//      _ <- BlazeServerBuilder[IO](ExecutionContext.global)
-//        .bindHttp(port = 9001, host = "localhost")
-//        .withHttpApp(httpApp)
-//        .serve
-//        .compile
-//        .drain
-//    } yield ExitCode.Success
