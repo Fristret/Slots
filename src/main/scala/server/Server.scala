@@ -70,8 +70,8 @@ object Server extends IOApp {
           .subscribe(3)
           .map(WebSocketFrame.Text(_))
 
-        //вход Bet: {"message": "bet", "login": "player123", "password": "dddd"}  //как должен быть
-        //вход logIn: logIn {"login": "player123", "password": "dddd"}
+        //вход Bet: {"message": "bet", "login": "player123", "password": "dddd"}
+        //вход Balance: {"message": "balance"}
 
         def fromClient: Pipe[IO, WebSocketFrame, Unit] = topic
           .publish
