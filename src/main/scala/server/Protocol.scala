@@ -6,8 +6,8 @@ object Protocol {
   case class Message(message: String)
 
   trait MessageIn
-  case class Player(message: Message, login: String, password: String) extends MessageIn
-  case class Bet(amountBet: Int, multiple: Int) extends MessageIn
+  case class Player(message: String, login: String, password: String) extends MessageIn
+  case class Bet(amount: Int, multiple: Int) extends MessageIn
 
   trait MessageOut
   case class Balance(amountBalance: BigDecimal) extends MessageOut
