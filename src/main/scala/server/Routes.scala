@@ -17,7 +17,7 @@ object Routes {
   import MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  // valid:    curl -X POST -H "Content-Type:application/json" -d "{\"message\":\"NewPlayer\",\"login\":\"masana\",\"password\":\"mig943g\"}" http://localhost:9001/registration
+  // valid:    curl -X POST -H "Content-Type:application/json" -d "{\"message\":\"NewPlayer\",\"login\":\"masana4214\",\"password\":\"mig943g\"}" http://localhost:9001/registration
 
   //  invalid:  curl -X POST -H "Content-Type:application/json" -d "{\"message\":\"NewPlayer\",\"login\":\"abobaoboaodofosfcgvbnm__==sdad\",\"password\":\"mig943g\"}" http://localhost:9001/registration
 
@@ -100,10 +100,10 @@ object Routes {
           loginCheck(player.login) *> passwordCheck(player.password)
         }
 
-        def loginCheck(login: String): IO[String] = if (login.length >= 3 && login.length <= 15 && login.matches("[a-zA-Z0-9]")) IO(login)
+        def loginCheck(login: String): IO[String] = if (login.length >= 3 && login.length <= 15 && login.matches("[a-zA-Z0-9]+")) IO(login)
         else throw new Exception("Wrong login syntax")
 
-        def passwordCheck(password: String): IO[String] = if (password.length >= 6 && password.length <= 15 && password.matches("[a-zA-Z0-9]")) IO(password)
+        def passwordCheck(password: String): IO[String] = if (password.length >= 6 && password.length <= 15 && password.matches("[a-zA-Z0-9]+")) IO(password)
         else throw new Exception("Wrong password syntax")
 
         def registration(player: Player): IO[String] = {
