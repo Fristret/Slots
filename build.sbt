@@ -23,4 +23,5 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-jdk-http-client" % "0.3.6",
   "org.http4s" %% "http4s-json4s-native" % http4sVersion,
   "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
+  "io.jvm.uuid" %% "scala-uuid" % "0.3.1"
 )

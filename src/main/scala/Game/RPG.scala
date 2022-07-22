@@ -1,4 +1,5 @@
 package Game
 
-object RPG {
+object RPG extends App{
+
 }

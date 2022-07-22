@@ -1,17 +1,19 @@
 package server
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
-import Protocol._
-import io.circe.syntax.EncoderOps
+import io.circe.Json
 import org.http4s.Method.POST
 import org.http4s._
 import org.http4s.client.blaze.BlazeClientBuilder
-import org.http4s.client.jdkhttpclient.{JdkWSClient, WSConnectionHighLevel, WSRequest}
+import org.http4s.client.jdkhttpclient.{JdkWSClient, WSConnectionHighLevel, WSFrame, WSRequest}
 import org.http4s.implicits.http4sLiteralsSyntax
 
 import java.net.http.HttpClient
 import scala.concurrent.ExecutionContext
 import scala.io.StdIn
+import CommonClasses._
+import cats.implicits.catsSyntaxFlatMapOps
+
 
 object Client extends IOApp {
 
@@ -22,27 +24,40 @@ object Client extends IOApp {
 
   private def printLine(string: String = ""): IO[Unit] = IO(println(string))
 
-  val clientResource: Resource[IO, WSConnectionHighLevel[IO]] = Resource.eval(IO(HttpClient.newHttpClient()))
-    .flatMap(JdkWSClient[IO](_).connectHighLevel(WSRequest(uri)))
+  private def clientResource(token: Token): Resource[IO, WSConnectionHighLevel[IO]] = Resource.eval(IO(HttpClient.newHttpClient()))
+    .flatMap(JdkWSClient[IO](_).connectHighLevel(WSRequest(uri"ws://127.0.0.1:9001/message/")))
+
 
   override def run(args: List[String]): IO[ExitCode] = {
-    BlazeClientBuilder[IO](ExecutionContext.global).resource.use { client =>
+    for {
+    tok <- BlazeClientBuilder[IO](ExecutionContext.global).resource.use { client =>
       for {
       _ <- printLine("Im Born. Enter your message: 1. NewPlayer, 2. LogIn")
         message = StdIn.readLine().trim match {
           case "1" => "NewPlayer"
           case "2" => "LogIn"
+          case _ => throw new Exception("Wrong message")
         }
         _ <- printLine(message)
         _ <- printLine("Enter your login")
         login = StdIn.readLine().trim
         _ <- printLine("Enter your password")
         password = StdIn.readLine().trim
-        json = s"""{"message": $message, "login": $login, "password": $password}""".asJson
+        json = Json.obj("message" -> Json.fromString(message), "login" -> Json.fromString(login), "password" -> Json.fromString(password))
         request = Request[IO](method = POST, uri).withEntity(json)
-        _ <- printLine(request.toString)
-        _ <- client.expect[Player](request)
-      } yield ExitCode.Success
+        token <- client.fetchAs[Token](request)
+        _ <- printLine(token.toString)
+      } yield token
     }
+      _ <- clientResource(tok).use { conn =>
+        for {
+          _ <- printLine(tok.toString)
+          _ <- conn.send(WSFrame.Text("balance"))
+          _ <- conn.receiveStream.collectFirst{
+            case WSFrame.Text(s, _) => s
+          }.compile.string >>= printLine
+        } yield ()
+      }
+      } yield ExitCode.Success
   }
 }
