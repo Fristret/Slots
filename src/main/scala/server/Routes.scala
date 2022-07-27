@@ -23,13 +23,13 @@ object Routes {
   import MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"mail\":\"d\"}, \"player\":{\"login\": {\"login\": \"masana444\"},\"password\": {\"password\": \"mig943g\"}}}" http://localhost:9001/authorization
+  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"mail\":\"d\"}, \"player\":{\"login\": {\"login\": \"masana\"},\"password\": {\"password\": \"mig943g\"}}}" http://localhost:9001/authorization
 
-  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"login\": \"masana444\"},\"password\": {\"password\": \"mig943g\"}}" http://localhost:9001/authorization
+  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"login\": \"masana\"},\"password\": {\"password\": \"mig943g\"}}" http://localhost:9001/authorization
 
   //websocat ws://127.0.0.1:9001/message/ token
-  //websocat ws://127.0.0.1:9001/message/"a8c399eb-c8c7-4965-ade6-34006ea84bfb&masana444"
-  //вход Bet: {"amount": "10"}
+  //websocat ws://127.0.0.1:9001/message/"5fa5ac97-0953-41a9-acf6-8f8f574bd2ba&masana"
+  //вход Bet: {"amount": "20"}
   //вход Balance: {"message": "balance"}
 
   def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]]): HttpRoutes[IO] = {
@@ -39,15 +39,15 @@ object Routes {
 
         val token = Token(id)
 
-        def verification: IO[Option[Login]] = cache.get.map(_.get(token)).map{
-          case Some(value) => Some(Login(token.id.split("&").reverse.head))
+        def verification: IO[Option[Login]] = cache.get.map(_.get(token)).map {
+          case Some(_) => Some(Login(token.id.split("&").reverse.head))
         }
 
         //написать Игру
         def doBet(bet: Bet, login: Login): IO[String] = for {
-          win <- updateBalance( - bet.amount, login) *> getBalance(login).flatMap(x => topic.publish1(x)) *> IO(Win(20))
+          win <- updateBalance( - bet.amount, login) *> IO(Win(20))
           res <- IO(s"You $win")
-          _ <- IO(Thread.sleep(10000)) *> updateBalance(win.win, login)
+          _ <- updateBalance(win.win, login)
           bal2 <- getBalance(login)
           _ <- topic.publish1(bal2)
         } yield res
@@ -68,7 +68,7 @@ object Routes {
                   case _: Balance => getBalance(login).handleErrorWith(e => IO(s"Error: ${e.getMessage}"))
                   case _ => IO.pure("try better")
                 }
-              } yield result.unsafeRunSync()
+              } yield result.handleErrorWith(e => IO(s"Error: ${e.getMessage}")).unsafeRunSync()
             }.getOrElse("Wrong")
           }
           )
