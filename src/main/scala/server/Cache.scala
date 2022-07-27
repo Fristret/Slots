@@ -12,7 +12,7 @@ object Cache {
 
   def check(cache: Ref[IO, Map[Token, Instant]]): IO[Map[Token, Instant]] = cache.modify {
     map =>
-      (map.foldLeft(map) {
+      (map.foldLeft(map) {  //filter
         case (value, (key, instant)) => if (Instant.now().compareTo(instant) >= 0) map.removed(key)
         else map
       }, map)

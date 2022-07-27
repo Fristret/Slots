@@ -11,6 +11,8 @@ scalacOptions ++= Seq(
 val circeVersion = "0.13.0"
 val http4sVersion = "0.21.22"
 val scalaTestVersion = "3.2.10"
+val doobieVersion = "0.13.4"
+val NewTypeVersion = "0.4.4"
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-generic" % circeVersion,
@@ -23,5 +25,8 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-jdk-http-client" % "0.3.6",
   "org.http4s" %% "http4s-json4s-native" % http4sVersion,
   "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
-  "io.jvm.uuid" %% "scala-uuid" % "0.3.1"
+  "io.jvm.uuid" %% "scala-uuid" % "0.3.1",
+  "org.tpolecat" %% "doobie-core" % doobieVersion,
+  "org.tpolecat" %% "doobie-postgres-circe" % doobieVersion,
+  "org.tpolecat" %% "doobie-hikari" % doobieVersion
 )

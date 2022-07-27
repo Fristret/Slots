@@ -4,8 +4,14 @@ import java.time.Instant
 
 object Protocol {
 
+  trait Value
+  case class Login(login: String) extends Value
+  case class Password(password: String) extends Value
+  case class Mail(mail: String) extends Value
+
   trait MessageIn
-  case class Player(message: String, login: String, password: String) extends MessageIn
+  case class Player(login: Login, password: Password) extends MessageIn
+  case class NewPlayer(mail: Mail, player: Player) extends MessageIn
   case class Bet(amount: Int, multiple: Int) extends MessageIn
   case class Balance(message: String) extends MessageIn
 

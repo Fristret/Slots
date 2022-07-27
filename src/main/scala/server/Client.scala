@@ -25,30 +25,33 @@ object Client extends IOApp {
   private def printLine(string: String = ""): IO[Unit] = IO(println(string))
 
   private def clientResource(token: Token): Resource[IO, WSConnectionHighLevel[IO]] = Resource.eval(IO(HttpClient.newHttpClient()))
-    .flatMap(JdkWSClient[IO](_).connectHighLevel(WSRequest(uri"ws://127.0.0.1:9001/message/")))
+    .flatMap(JdkWSClient[IO](_).connectHighLevel(WSRequest(uri"ws://127.0.0.1:9001/message/masana")))
+
+  private val tok = Token("115a706d-d602-4960-ab58-e7064e41a7a7&fsdfsdfsdfsdf")
 
 
   override def run(args: List[String]): IO[ExitCode] = {
     for {
-    tok <- BlazeClientBuilder[IO](ExecutionContext.global).resource.use { client =>
-      for {
-      _ <- printLine("Im Born. Enter your message: 1. NewPlayer, 2. LogIn")
-        message = StdIn.readLine().trim match {
-          case "1" => "NewPlayer"
-          case "2" => "LogIn"
-          case _ => throw new Exception("Wrong message")
-        }
-        _ <- printLine(message)
-        _ <- printLine("Enter your login")
-        login = StdIn.readLine().trim
-        _ <- printLine("Enter your password")
-        password = StdIn.readLine().trim
-        json = Json.obj("message" -> Json.fromString(message), "login" -> Json.fromString(login), "password" -> Json.fromString(password))
-        request = Request[IO](method = POST, uri).withEntity(json)
-        token <- client.fetchAs[Token](request)
-        _ <- printLine(token.toString)
-      } yield token
-    }
+//    tok <- BlazeClientBuilder[IO](ExecutionContext.global).resource.use { client =>
+//      for {
+//      _ <- printLine("Im Born. Enter your message: 1. NewPlayer, 2. LogIn")
+//        message = StdIn.readLine().trim match {
+//          case "1" => "NewPlayer"
+//          case "2" => "LogIn"
+//          case _ => throw new Exception("Wrong message")
+//        }
+//        _ <- printLine(message)
+//        _ <- printLine("Enter your login")
+//        login = StdIn.readLine().trim
+//        _ <- printLine("Enter your password")
+//        password = StdIn.readLine().trim
+//        json = Json.obj("message" -> Json.fromString(message), "login" -> Json.fromString(login), "password" -> Json.fromString(password))
+//        request = Request[IO](method = POST, uri).withEntity(json)
+//        token <- client.fetchAs[Token](request)
+//        _ <- printLine(token.toString)
+//      } yield token
+//    }
+//    _ <- printLine("Tyta")
       _ <- clientResource(tok).use { conn =>
         for {
           _ <- printLine(tok.toString)

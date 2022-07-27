@@ -15,26 +15,23 @@ import server.CommonClasses.Token
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import CheckSyntax._
 
 object Routes {
 
   import MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  // valid:    curl -X POST -H "Content-Type:application/json" -d "{\"message\":\"NewPlayer\",\"login\":\"masana\",\"password\":\"mig943g\"}" http://localhost:9001/registration
+  // valid Registration:    curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"mail\":\"d\"}, \"player\":{\"login\": {\"login\": \"masana\"},\"password\": {\"password\": \"mig943g\"}}}" http://localhost:9001/authorization
 
-  // invalid: curl -X POST -H "Content-Type:application/json" -d "{\"message\":\"LogIn\",\"login\":\"masana\",\"password\":\"mig943\"}" http://localhost:9001/registration
+  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"login\": \"masana\"},\"password\": {\"password\": \"mig943g\"}}" http://localhost:9001/authorization
 
-  //  invalid:  curl -X POST -H "Content-Type:application/json" -d "{\"message\":\"NewPlayer\",\"login\":\"abobaoboaodofosfcgvbnm__==sdad\",\"password\":\"mig943g\"}" http://localhost:9001/registration
+  //websocat ws://127.0.0.1:9001/message/ token
 
-  //  curl -X POST -H "Content-Type:application/json" -d "{\"message\":\"LogIn\",\"login\":\"masana\",\"password\":\"mig943g\"}" http://localhost:9001/registration
-
-  //websocat ws://127.0.0.1:9001/message/"3c6de2d5-c54f-4514-9f22-1c0c7ab87a79&masana"
-
-  //вход Bet: {"message": "bet","amount": "10","multiple": "2"}
+  //вход Bet: {"amount": "10","multiple": "2"}
   //вход Balance: {"message": "balance"}
 
-  def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]]): HttpRoutes[IO] = {
+  def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]], ref: Ref[IO, Map[Mail, Player]]): HttpRoutes[IO] = {
 
     HttpRoutes.of[IO] {
       case GET -> Root / "message" / id =>
@@ -85,74 +82,43 @@ object Routes {
               response <- WebSocketBuilder[IO].build(receive = fromClient(x), send = toClient)
             } yield response
           }
-          } yield res
-    }
-  }
+        } yield res
 
-  def registrationRoute(ref: Ref[IO, Map[String, Player]], cache: Ref[IO, Map[Token, Instant]]): HttpRoutes[IO] = {
-
-    HttpRoutes.of[IO] {
-
-      case req @ POST -> Root / "registration" =>
+      case req @ POST -> Root / "authorization" =>
 
         def tokenGenerator(player: Player): IO[Token] = {
-          val id = Token(UUID.randomString ++ "&" ++ player.login)
+          val id = Token(UUID.randomString ++ "&" ++ player.login.login)
           cache
             .modify { map =>
               (map + (id -> Instant.now().plus(5.toLong, ChronoUnit.MINUTES)), id)
             }
-
         }
 
-        def checkPlayerSyntax(player: Player): IO[String] = {
-          loginCheck(player.login).handleErrorWith(err => IO(s"Error: $err")) *> passwordCheck(player.password).handleErrorWith(err => IO(s"Error: $err"))
-        }
-
-        def loginCheck(login: String): IO[String] = if (login.length >= 3 && login.length <= 15 && login.matches("[a-zA-Z0-9]+")) IO(login)
-          else IO.raiseError(new IllegalStateException("Wrong login"))
-
-        def passwordCheck(password: String): IO[String] = if (password.length >= 6 && password.length <= 15 && password.matches("[a-zA-Z0-9]+")) IO(password)
-        else IO.raiseError(new IllegalStateException("Wrong password"))
-
-        def registration(player: Player): IO[Either[String, IO[Token]]] = {
-          player.message match {
-            case "NewPlayer" => createPlayer(player)
-            case "LogIn" => verifyPlayer(player)
-            case _ => IO(Left("Wrong message"))
-          }
-        }
-
-        def createPlayer(player: Player): IO[Either[String, IO[Token]]] = {
+        def createPlayer(player: NewPlayer): IO[Either[String, IO[Token]]] = {
           ref.modify {
             map =>
-              map.get(player.login) match {
-                case None => (map + (player.login -> player), Right(tokenGenerator(player)))
+              map.get(player.mail) match {
+                case None => (map + (player.mail -> player.player), Right(tokenGenerator(player.player)))
                 case Some(x) => (map, Left(s"Player ${x.login} exists"))
               }
           }
         }
 
-        def verifyPlayer(player: Player): IO[Either[String, IO[Token]]] = {
-          ref.modify {
-            map =>
-              map.get(player.login) match {
-                case None => (map, Left(s"Player ${player.login} don't exist"))
-                case Some(x) => if (x.password == player.password) (map, Right(tokenGenerator(player)))
-                else (map, Left(s"Wrong password"))
-              }
-          }
-        }
+        def verifyPlayer(player: Player): IO[Either[String, IO[Token]]] = IO(???)
 
-        req.as[Player]
-          .flatMap(player => for {
-            either <- checkPlayerSyntax(player) *> registration(player)
-            token <- either match {
+        {
+          for {
+            message <- req.as[MessageIn]
+            either <- message match {
+              case newPlayer: NewPlayer => newPlayer.player.checkSyntax *> createPlayer(newPlayer)
+              case player: Player => player.checkSyntax *> verifyPlayer(player)
+            }
+            response <- either match {
               case Left(x) => BadRequest(s"Mistake: $x")
               case Right(a) => Ok(a.unsafeRunSync())
-            }
-          } yield token
-          )
-          .handleErrorWith(e => BadRequest(s"Error: ${e.getMessage}"))
+                }
+            } yield response
+        }.handleErrorWith(e => BadRequest(s"Error: ${e.getMessage}"))
     }
   }
 }
