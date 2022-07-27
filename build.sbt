@@ -13,8 +13,12 @@ val http4sVersion = "0.21.22"
 val scalaTestVersion = "3.2.10"
 val doobieVersion = "0.13.4"
 val NewTypeVersion = "0.4.4"
+val catsVersion = "2.6.1"
+val catsEffectVersion = "2.5.1"
 
 libraryDependencies ++= Seq(
+  "org.typelevel" %% "cats-core" % catsVersion,
+  "org.typelevel" %% "cats-effect" % catsEffectVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-generic-extras" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,
@@ -28,5 +32,5 @@ libraryDependencies ++= Seq(
   "io.jvm.uuid" %% "scala-uuid" % "0.3.1",
   "org.tpolecat" %% "doobie-core" % doobieVersion,
   "org.tpolecat" %% "doobie-postgres-circe" % doobieVersion,
-  "org.tpolecat" %% "doobie-hikari" % doobieVersion
+  "org.tpolecat" %% "doobie-hikari" % doobieVersion,
 )

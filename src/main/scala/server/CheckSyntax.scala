@@ -9,6 +9,9 @@ object CheckSyntax {
     def check(value: A): IO[String]
   }
 
+  def checkBet(value: Int, min: Int, max: Int, div: Int): IO[String] = if ((value >= min && value <= max) && (value % div == 0)) IO(value.toString)
+  else IO.raiseError(new IllegalStateException("Wrong bet"))
+
   implicit val mailSyntax: Syntax[Mail] = (value: Mail) => if (value.mail.matches("[a-zA-Z0-9]+@[a-z]+[.][a-z]+")) IO(value.mail)
   else IO.raiseError(new IllegalStateException("Wrong mail"))
 
@@ -18,13 +21,12 @@ object CheckSyntax {
   implicit val passwordSyntax: Syntax[Password] = (value: Password) => if (value.password.length >= 6 && value.password.length <= 15 && value.password.matches("[a-zA-Z0-9]+")) IO(value.password)
   else IO.raiseError(new IllegalStateException("Wrong password"))
 
-  implicit val playerSyntax: Syntax[Player] = (value: Player) => for {
-    result <- value.login.checkSyntax.handleErrorWith(e => IO(s"Error: ${e.getMessage}")) *> value.password.checkSyntax.handleErrorWith(e => IO(s"Error: ${e.getMessage}"))
-  } yield result
+  implicit val playerSyntax: Syntax[Player] = (value: Player) => value.login.checkSyntax *> value.password.checkSyntax
 
-  implicit val newPlayerSyntax: Syntax[NewPlayer] = (value: NewPlayer) => for {
-    result <- value.mail.checkSyntax.handleErrorWith(e => IO(s"Error: ${e.getMessage}")) *> value.player.checkSyntax.handleErrorWith(e => IO(s"Error: ${e.getMessage}"))
-  } yield result
+  implicit val newPlayerSyntax: Syntax[NewPlayer] = (value: NewPlayer) => value.mail.checkSyntax *> value.player.checkSyntax
+
+  implicit val betSyntax: Syntax[Bet] = (bet: Bet) => if (bet.amount >= 1 && bet.amount <= 20) IO(bet.amount.toString)
+  else IO.raiseError(new IllegalStateException("Wrong bet"))
 
   implicit class SyntaxOps[A](value: A) {
     def checkSyntax(implicit syntax: Syntax[A]): IO[String] = {

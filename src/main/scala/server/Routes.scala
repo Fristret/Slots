@@ -16,43 +16,47 @@ import server.CommonClasses.Token
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import CheckSyntax._
+import Doobie._
 
 object Routes {
 
   import MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  // valid Registration:    curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"mail\":\"d\"}, \"player\":{\"login\": {\"login\": \"masana\"},\"password\": {\"password\": \"mig943g\"}}}" http://localhost:9001/authorization
+  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"mail\":\"d\"}, \"player\":{\"login\": {\"login\": \"masana444\"},\"password\": {\"password\": \"mig943g\"}}}" http://localhost:9001/authorization
 
-  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"login\": \"masana\"},\"password\": {\"password\": \"mig943g\"}}" http://localhost:9001/authorization
+  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"login\": \"masana444\"},\"password\": {\"password\": \"mig943g\"}}" http://localhost:9001/authorization
 
   //websocat ws://127.0.0.1:9001/message/ token
-
-  //вход Bet: {"amount": "10","multiple": "2"}
+  //websocat ws://127.0.0.1:9001/message/"a8c399eb-c8c7-4965-ade6-34006ea84bfb&masana444"
+  //вход Bet: {"amount": "10"}
   //вход Balance: {"message": "balance"}
 
-  def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]], ref: Ref[IO, Map[Mail, Player]]): HttpRoutes[IO] = {
+  def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]]): HttpRoutes[IO] = {
 
     HttpRoutes.of[IO] {
       case GET -> Root / "message" / id =>
 
         val token = Token(id)
 
-        def verification: IO[Option[String]] = cache.get.map(_.get(token)).map{
-          case Some(value) => Some(token.id.split("&").reverse.head)
+        def verification: IO[Option[Login]] = cache.get.map(_.get(token)).map{
+          case Some(value) => Some(Login(token.id.split("&").reverse.head))
         }
 
         //написать Игру
-        def doBet(bet: Bet, login: String): IO[String] = IO("Your bet")
-
-        //разобраться с Doobie
-        def getBalance(login: String) = IO("Your balance")
+        def doBet(bet: Bet, login: Login): IO[String] = for {
+          win <- updateBalance( - bet.amount, login) *> getBalance(login).flatMap(x => topic.publish1(x)) *> IO(Win(20))
+          res <- IO(s"You $win")
+          _ <- IO(Thread.sleep(10000)) *> updateBalance(win.win, login)
+          bal2 <- getBalance(login)
+          _ <- topic.publish1(bal2)
+        } yield res
 
         def toClient: Stream[IO, WebSocketFrame] = topic
           .subscribe(3)
           .map(WebSocketFrame.Text(_))
 
-        def fromClient(login: String): Pipe[IO, WebSocketFrame, Unit] = topic
+        def fromClient(login: Login): Pipe[IO, WebSocketFrame, Unit] = topic
           .publish
           .compose[Stream[IO, WebSocketFrame]](_.collect {
             case WebSocketFrame.Text(message, _) => {
@@ -60,8 +64,8 @@ object Routes {
                 json <- parse(message)
                 message <- json.as[MessageIn]
                 result = message match {
-                  case bet: Bet => doBet(bet, login)
-                  case _: Balance => getBalance(login)
+                  case bet: Bet => bet.checkSyntax *> doBet(bet, login)
+                  case _: Balance => getBalance(login).handleErrorWith(e => IO(s"Error: ${e.getMessage}"))
                   case _ => IO.pure("try better")
                 }
               } yield result.unsafeRunSync()
@@ -94,30 +98,14 @@ object Routes {
             }
         }
 
-        def createPlayer(player: NewPlayer): IO[Either[String, IO[Token]]] = {
-          ref.modify {
-            map =>
-              map.get(player.mail) match {
-                case None => (map + (player.mail -> player.player), Right(tokenGenerator(player.player)))
-                case Some(x) => (map, Left(s"Player ${x.login} exists"))
-              }
-          }
-        }
-
-        def verifyPlayer(player: Player): IO[Either[String, IO[Token]]] = IO(???)
-
         {
           for {
             message <- req.as[MessageIn]
-            either <- message match {
-              case newPlayer: NewPlayer => newPlayer.player.checkSyntax *> createPlayer(newPlayer)
-              case player: Player => player.checkSyntax *> verifyPlayer(player)
+            resp <- message match {
+              case newPlayer: NewPlayer => newPlayer.player.checkSyntax *> createPlayer(newPlayer.player) *> BadRequest("Player has been created")
+              case player: Player => player.checkSyntax *> verifyPlayer(player) *> Ok(tokenGenerator(player))
             }
-            response <- either match {
-              case Left(x) => BadRequest(s"Mistake: $x")
-              case Right(a) => Ok(a.unsafeRunSync())
-                }
-            } yield response
+            } yield resp
         }.handleErrorWith(e => BadRequest(s"Error: ${e.getMessage}"))
     }
   }

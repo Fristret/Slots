@@ -12,12 +12,12 @@ object Protocol {
   trait MessageIn
   case class Player(login: Login, password: Password) extends MessageIn
   case class NewPlayer(mail: Mail, player: Player) extends MessageIn
-  case class Bet(amount: Int, multiple: Int) extends MessageIn
+  case class Bet(amount: Int) extends MessageIn
   case class Balance(message: String) extends MessageIn
 
   trait MessageOut
-  case class BalanceOut(amountBalance: BigDecimal) extends MessageOut
+  case class BalanceDemo(amountBalance: BigDecimal) extends MessageOut
   case class Combination(comb: List[Int]) extends MessageOut
-  case class Win(win: BigDecimal) extends MessageOut
+  case class Win(win: Int) extends MessageOut
   case class WinOutput(login: String, amountWin: Win, time: Instant) extends MessageOut
 }

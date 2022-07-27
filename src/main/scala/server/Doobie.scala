@@ -1,37 +1,46 @@
 package server
 
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect._
 import doobie.util.transactor.Transactor
-import doobie.postgres.circe._
-import doobie.postgres.circe.json.implicits._
 import Protocol._
 import doobie.implicits._
-import io.circe.parser._
 
 object Doobie extends IOApp {
 
-  implicit class Debugger[A](io: IO[A]) {
-    def debug: IO[A] = io.map {
-      a =>
-        println(s"[${Thread.currentThread().getName}] $a")
-        a
-    }
-  }
-
   val xa: Transactor[IO] = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver",
-    "jdbc:postgresql://localhost:5432/test",
+    "jdbc:postgresql://localhost:5432/SlotDB",
     "postgres",
     "GigaChad1337"
   )
 
-//  def findAllPlayers: IO[List[Json]] = {
-//    val query = sql"SELECT * FROM players".query[Json]
-//    val action = query.map(a => parse(a)).to[List]
-//    action.transact(xa)
-//  }
+  def createPlayer(player: Player): IO[String] = {
+    val createPlayer = sql"INSERT INTO players (login, password, amount) VALUES (${player.login}, ${player.password}, 1000)"
+    createPlayer.update.run.transact(xa).attempt.flatMap{
+      case Left(error) => IO.raiseError(new IllegalAccessError("Player exists"))
+      case Right(value) => IO("Good")
+    }
+  }
 
+  def verifyPlayer(player: Player): IO[String] = for {
+    either <- sql"SELECT password FROM players WHERE login = ${player.login}".query[Password].unique.transact(xa).attempt
+    res <- either match {
+      case Left(err) => IO.raiseError(err)
+      case Right(password) => if (password == player.password) IO("")
+        else IO.raiseError(new IllegalAccessError("Wrong password"))
+    }
+  } yield res
 
-  override def run(args: List[String]): IO[ExitCode] = ???
-//    findAllPlayers.debug.as(ExitCode.Success)
+  def getBalance(login: Login): IO[String] = {
+    val query = sql"SELECT amount FROM players WHERE login = $login".query[String]
+    val action = query.unique
+    action.transact(xa)
+  }
+
+  def updateBalance(value: Int, login: Login): IO[Int]  ={
+    val query = sql"UPDATE players SET amount = amount + $value WHERE login = $login"
+    query.update.run.transact(xa)
+  }
+
+  override def run(args: List[String]): IO[ExitCode] = IO(ExitCode.Success)
 }
