@@ -64,7 +64,10 @@ object Routes {
                 json <- parse(message)
                 message <- json.as[MessageIn]
                 result = message match {
-                  case bet: Bet => bet.checkSyntax *> doBet(bet, login)
+                  case bet: Bet => bet.checkSyntax match {
+                    case Right(_) => doBet(bet, login)
+                    case Left(err) => IO.raiseError(new IllegalStateException(err))
+                  }
                   case _: Balance => getBalance(login).handleErrorWith(e => IO(s"Error: ${e.getMessage}"))
                   case _ => IO.pure("try better")
                 }
@@ -102,8 +105,14 @@ object Routes {
           for {
             message <- req.as[MessageIn]
             resp <- message match {
-              case newPlayer: NewPlayer => newPlayer.player.checkSyntax *> createPlayer(newPlayer.player) *> Ok("Player has been created")
-              case player: Player => player.checkSyntax *> verifyPlayer(player) *> Ok(tokenGenerator(player))
+              case newPlayer: NewPlayer => newPlayer.player.checkSyntax match {
+                case Right(_) => createPlayer(newPlayer.player) *> Ok("Player has been created")
+                case Left(err) => BadRequest(err)
+              }
+              case player: Player => player.checkSyntax match {
+                case Right(_) => verifyPlayer(player) *> Ok(tokenGenerator(player))
+                case Left(err) => BadRequest(err)
+              }
             }
             } yield resp
         }.handleErrorWith(e => BadRequest(s"Error: ${e.getMessage}"))

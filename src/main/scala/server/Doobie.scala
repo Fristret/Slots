@@ -5,7 +5,7 @@ import doobie.util.transactor.Transactor
 import Protocol._
 import doobie.implicits._
 
-object Doobie extends IOApp {
+object Doobie extends IOApp.Simple {
 
   val xa: Transactor[IO] = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver",
@@ -42,6 +42,23 @@ object Doobie extends IOApp {
     query.update.run.transact(xa)
   }
 
+  def createBD: IO[Int] = {
+    val create =
+      sql"""
+    CREATE TABLE IF NOT EXISTS players(
+    login text NOT NULL,
+    password text NOT NULL,
+    amount INT CHECK (amount >= 0),
+    UNIQUE(login)
+);
+  """.update.run
+
+    create.transact(xa)
+  }
+
   //создание БД
-  override def run(args: List[String]): IO[ExitCode] = IO(ExitCode.Success)
+  val run: IO[Unit] = for {
+    pr <- IO(println("Hello, World"))
+    _ <- createBD
+  } yield pr
 }

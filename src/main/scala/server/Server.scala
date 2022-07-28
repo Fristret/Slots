@@ -22,6 +22,7 @@ object Server extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
     for {
       cache <- Ref[IO].of(Map.empty[Token, Instant])
+      _ <- Doobie.run
       _ <- cacheOptimizer(cache).start
       topic <- Topic[IO, String]("Welcome. Write your request")
       _ <- BlazeServerBuilder[IO](ExecutionContext.global)
