@@ -7,11 +7,8 @@ import server.Protocol._
 import server.MessageJson._
 
 object RPG extends App{
-  val mail = """{"mail":"dsdsd@mail.ru"}"""
-  val password = """{"password": "mig943g"}"""
-  val login = """{"login": "masana"}"""
-  val player = s"""{"login": $login, "password": $password}"""
-  val newPlayer = s"""{"mail": $mail, "player": $player}"""
+  val player = s"""{"login": "masana", "password": "masanasd"}"""
+  val newPlayer = s"""{"mail": "fnsdfsf", "player": $player}"""
   val pla =  Player(Login("masana"), Password("1212sos"))
   println(player)
   println(newPlayer)

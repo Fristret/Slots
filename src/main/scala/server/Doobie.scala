@@ -22,11 +22,11 @@ object Doobie extends IOApp {
     }
   }
 
-  def verifyPlayer(player: Player): IO[String] = for {
+  def verifyPlayer(player: Player): IO[Unit] = for {
     either <- sql"SELECT password FROM players WHERE login = ${player.login}".query[Password].unique.transact(xa).attempt
     res <- either match {
       case Left(err) => IO.raiseError(err)
-      case Right(password) => if (password == player.password) IO("")
+      case Right(password) => if (password == player.password) IO.unit
         else IO.raiseError(new IllegalAccessError("Wrong password"))
     }
   } yield res
@@ -42,5 +42,6 @@ object Doobie extends IOApp {
     query.update.run.transact(xa)
   }
 
+  //создание БД
   override def run(args: List[String]): IO[ExitCode] = IO(ExitCode.Success)
 }

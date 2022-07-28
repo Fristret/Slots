@@ -33,13 +33,6 @@ object MessageJson {
   implicit val balanceDecoder: Decoder[Balance] = deriveDecoder[Balance]
   implicit val balanceEncoder: Encoder[Balance] = deriveEncoder[Balance]
 
-  implicit val valueDecoder: Decoder[Value] = List[Decoder[Value]](loginDecoder.widen, passwordDecoder.widen, mailDecoder.widen).reduce(_ or _)
-  implicit val valueEncoder: Encoder[Value] = Encoder.instance{
-    case login: Login => login.asJson
-    case password: Password => password.asJson
-    case mail: Mail => mail.asJson
-  }
-
   implicit val messageInDecoder: Decoder[MessageIn] = List[Decoder[MessageIn]](betDecoder.widen, balanceDecoder.widen, playerDecoder.widen, newPlayerDecoder.widen).reduce(_ or _)
   implicit val messageInEncoder: Encoder[MessageIn] = Encoder.instance{
     case bet: Bet => bet.asJson

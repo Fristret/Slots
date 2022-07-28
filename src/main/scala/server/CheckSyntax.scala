@@ -9,6 +9,8 @@ object CheckSyntax {
     def check(value: A): IO[String]
   }
 
+  //Either
+
   def checkBet(value: Int, min: Int, max: Int, div: Int): IO[String] = if ((value >= min && value <= max) && (value % div == 0)) IO(value.toString)
   else IO.raiseError(new IllegalStateException("Wrong bet"))
 

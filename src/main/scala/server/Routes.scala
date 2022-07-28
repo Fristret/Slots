@@ -39,8 +39,8 @@ object Routes {
 
         val token = Token(id)
 
-        def verification: IO[Option[Login]] = cache.get.map(_.get(token)).map {
-          case Some(_) => Some(Login(token.id.split("&").reverse.head))
+        def verification: IO[Option[Login]] = cache.get.map(_.get(token)) map {
+          _ => Some(Login(token.id.split("&").reverse.head))
         }
 
         //написать Игру
@@ -102,7 +102,7 @@ object Routes {
           for {
             message <- req.as[MessageIn]
             resp <- message match {
-              case newPlayer: NewPlayer => newPlayer.player.checkSyntax *> createPlayer(newPlayer.player) *> BadRequest("Player has been created")
+              case newPlayer: NewPlayer => newPlayer.player.checkSyntax *> createPlayer(newPlayer.player) *> Ok("Player has been created")
               case player: Player => player.checkSyntax *> verifyPlayer(player) *> Ok(tokenGenerator(player))
             }
             } yield resp

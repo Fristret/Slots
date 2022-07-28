@@ -4,10 +4,9 @@ import java.time.Instant
 
 object Protocol {
 
-  trait Value
-  case class Login(login: String) extends Value
-  case class Password(password: String) extends Value
-  case class Mail(mail: String) extends Value
+  case class Login(login: String) extends AnyVal
+  case class Password(password: String) extends AnyVal
+  case class Mail(mail: String) extends AnyVal
 
   trait MessageIn
   case class Player(login: Login, password: Password) extends MessageIn
