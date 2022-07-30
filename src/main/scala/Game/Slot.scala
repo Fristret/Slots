@@ -2,7 +2,11 @@ package Game
 
 import SlotObjects._
 import RNG._
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect._
+import server.Protocol.{Bet, Win}
+import CheckScreen._
+
+import scala.annotation.tailrec
 
 object Slot extends IOApp{
 
@@ -14,16 +18,16 @@ object Slot extends IOApp{
     case i if i % 10 == 6 && i > 50 => Bag //5%
     case i if i % 5 == 0 && i <= 50 => Sword //15%
     case i if i % 10 == 6 && i < 50 => MiniGame //5%
-    case i if i % 10 == 7 => Multiply //10%
     case i if i % 10 == 8 || i % 10 == 4 => Point10 // 20%
-    case _ => Point5//30%
+    case i if i % 10 == 9 => Wild //10%
+    case _ => Point5 //30 %
   }
 
   def generateColumn: Column = {
     val object1 = getObject
     val object2 = getObject
     val object3 = getObject
-    Column(List(object1, object2, object3))
+    Column(Map(1 -> object1) ++ Map(2 -> object2) ++ Map(3 -> object3))
   }
 
   def generateScreen: Screen = {
@@ -35,20 +39,163 @@ object Slot extends IOApp{
     Screen(List(column1, column2, column3, column4, column5))
   }
 
-  def checkContains(objects: Element, list: List[Column]): Map[Element, Int] = ???
+  def generateConfigure(screen: Screen): Configure = {
+    Configure(List(
+      checkRow(1, 1, screen.screen),
+      checkRow(2, 1, screen.screen),
+      checkRow(3, 1, screen.screen),
+      check2(1, 1, screen.screen),
+      check2(3, 1, screen.screen),
+      check3(1, 1, screen.screen),
+      check3(3, 1, screen.screen),
+      check4(1, 1, screen.screen),
+      check4(3, 1, screen.screen),
+      check5(1, screen.screen),
+      check6(1, 1, screen.screen),
+      check6(3, 1, screen.screen),
+      check7(2, 1, screen.screen),
+      check7(3, 1, screen.screen),
+      check8(1, screen.screen)
+    )
+    )
+  }
 
-  def checkWin(screen: Screen, config: Configure = Configure(Map.empty[Element, Int])): Configure = screen.screen.head.elements.foldLeft(config)((a, obj) => a(checkContains(obj, screen.screen.tail)))
+  @tailrec
+  def paymentCheck(list: List[List[Element]], bet: Bet, map: Map[Int, Int], count: Int = 1): Map[Int, Int] = if (list.isEmpty) map
+  else list.head match {
+    case List(Point5, Point5, Point5, Point5, Point5) => {
+      val newMap = map.updated(count, (bet.amount * 0.4).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Point5, Point5, Point5, Point5, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.45).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Point5, Point5, Point5, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.3).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Point10, Point10, Point10, Point10, Point10) => {
+      val newMap = map.updated(count,(bet.amount * 0.5).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Point10, Point10, Point10, Point10, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.4).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Point10, Point10, Point10, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.3).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Sword, Sword, Sword, Sword, Sword) => {
+      val newMap = map.updated(count,(bet.amount * 0.9).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Sword, Sword, Sword, Sword, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.8).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Sword, Sword, Sword, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.7).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Bag, Bag, Bag, Bag, Bag) => {
+      val newMap = map.updated(count,(bet.amount * 0.9).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Bag, Bag, Bag, Bag, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.8).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Bag, Bag, Bag, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.7).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Chest, Chest, Chest, Chest, Chest) => {
+      val newMap = map.updated(count,(bet.amount * 2))
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Chest, Chest, Chest, Chest, _) => {
+      val newMap = map.updated(count,(bet.amount * 1.6).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Chest, Chest, Chest, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 1.5).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Jackpot, Jackpot, Jackpot, Jackpot, Jackpot) => {
+      val newMap = map.updated(count,(bet.amount * 1000))
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Jackpot, Jackpot, Jackpot, Jackpot, _) => {
+      val newMap = map.updated(count,(bet.amount * 500))
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Jackpot, Jackpot, Jackpot, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 100))
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, FreeSpins) => {
+      val newMap = map.updated(count,(bet.amount * 1.5).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, _) => {
+      val newMap = map.updated(count,(bet.amount * 1.2).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(FreeSpins, FreeSpins, FreeSpins, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 1.1).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(MiniGame, MiniGame, MiniGame, MiniGame, MiniGame) => {
+      val newMap = map.updated(count,(bet.amount * 0.75).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(MiniGame, MiniGame, MiniGame, MiniGame, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.7).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(MiniGame, MiniGame, MiniGame, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.6).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Action, Action, Action, Action, Action) => {
+      val newMap = map.updated(count,(bet.amount * 0.3).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Action, Action, Action, Action, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.2).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case List(Action, Action, Action, _, _) => {
+      val newMap = map.updated(count,(bet.amount * 0.1).toInt)
+      paymentCheck(list.tail, bet, newMap, count + 1)
+    }
+    case _ => paymentCheck(list.tail, bet,map, count + 1)
+  }
 
-  //  Column first element ->
-  //  Check in next Column, if it contains =>
-  //  if Yes => Add to Configure
-  //  if No => Take next element from column
+  def getWinningConfigure(list: List[List[Element]], set: List[Int]): List[List[Element]] = if (set.isEmpty) List()
+  else set.head match {
+    case x => List(list(x-1)) ++ getWinningConfigure(list, set.tail)
+    case _ => List()
+  }
 
-  def spin: IO[Screen] = IO(generateScreen)
+  def checkWin(screen: Screen, bet: Bet): Win = {
+    val configure = generateConfigure(screen)
+    val payment = paymentCheck(configure.configure, bet, Map(0 -> 0))
+    val listOfKeys = payment.keys.toList
+    val listWithWin = getWinningConfigure(configure.configure, listOfKeys.tail)
+    Win(payment.foldLeft(0)(_ +_._2), Configure(listWithWin))
+  }
 
-  override def run(args: List[String]): IO[ExitCode] = for {
-    screen <- spin
+  def spin(bet: Bet): IO[Win] = {
+    val screen = generateScreen
+    IO(checkWin(screen, bet))
+  }
+
+  override def run(args: List[String]): IO[ExitCode] = for{
+    screen <- IO(generateScreen)
     _ <- IO(println(screen))
-    _ <- IO(println(checkWin(screen)))
-  } yield ExitCode.Success
+    _ <- IO(println(checkWin(screen, Bet(400))))
+  }yield ExitCode.Success
 }

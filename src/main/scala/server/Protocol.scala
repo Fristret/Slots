@@ -1,5 +1,7 @@
 package server
 
+import Game.SlotObjects.Configure
+
 import java.time.Instant
 
 object Protocol {
@@ -17,6 +19,6 @@ object Protocol {
   trait MessageOut
   case class BalanceDemo(amountBalance: BigDecimal) extends MessageOut
   case class Combination(comb: List[Int]) extends MessageOut
-  case class Win(win: Int) extends MessageOut
+  case class Win(win: Int, list: Configure) extends MessageOut
   case class WinOutput(login: String, amountWin: Win, time: Instant) extends MessageOut
 }

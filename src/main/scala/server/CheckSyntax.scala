@@ -8,9 +8,6 @@ object CheckSyntax {
     def check(value: A): Either[String, Unit]
   }
 
-  def checkBet(value: Int, min: Int, max: Int, div: Int): Either[String, Unit] = if ((value >= min && value <= max) && (value % div == 0)) Right()
-  else Left("Wrong bet")
-
   implicit val mailSyntax: Syntax[Mail] = (value: Mail) => if (value.mail.matches("[a-zA-Z0-9]+@[a-z]+[.][a-z]+")) Right()
   else Left("Wrong mail")
 
@@ -29,7 +26,7 @@ object CheckSyntax {
     case Right(_) => value.player.checkSyntax
     case Left(err) => Left(err)
   }
-  implicit val betSyntax: Syntax[Bet] = (bet: Bet) => if (bet.amount >= 1 && bet.amount <= 20) Right()
+  implicit val betSyntax: Syntax[Bet] = (bet: Bet) => if (bet.amount >= 40 && bet.amount <= 10000) Right()
   else Left("Wrong bet")
 
   implicit class SyntaxOps[A](value: A) {

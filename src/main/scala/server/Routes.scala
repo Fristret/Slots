@@ -12,6 +12,7 @@ import org.http4s.websocket.WebSocketFrame
 import server.Protocol._
 import io.jvm.uuid._
 import server.CommonClasses.Token
+import Game.Slot.spin
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -23,13 +24,13 @@ object Routes {
   import MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"mail\":\"d\"}, \"player\":{\"login\": {\"login\": \"masana\"},\"password\": {\"password\": \"mig943g\"}}}" http://localhost:9001/authorization
+  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"mail\":\"d\"}, \"player\":{\"login\": {\"login\": \"masana23\"},\"password\": {\"password\": \"mig943g\"}}}" http://localhost:9001/authorization
 
-  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"login\": \"masana\"},\"password\": {\"password\": \"mig943g\"}}" http://localhost:9001/authorization
+  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"login\": \"masana23\"},\"password\": {\"password\": \"mig943g\"}}" http://localhost:9001/authorization
 
   //websocat ws://127.0.0.1:9001/message/ token
-  //websocat ws://127.0.0.1:9001/message/"5fa5ac97-0953-41a9-acf6-8f8f574bd2ba&masana"
-  //вход Bet: {"amount": "20"}
+  //websocat ws://127.0.0.1:9001/message/"fcdec9da-d377-4824-b35c-ba45a2282bf6&masana23"
+  //вход Bet: {"amount": "200"}
   //вход Balance: {"message": "balance"}
 
   def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]]): HttpRoutes[IO] = {
@@ -45,7 +46,7 @@ object Routes {
 
         //написать Игру
         def doBet(bet: Bet, login: Login): IO[String] = for {
-          win <- updateBalance( - bet.amount, login) *> IO(Win(20))
+          win <- updateBalance( - bet.amount, login).handleErrorWith(e => IO(s"You haven't money to Bet")) *> spin(bet)
           res <- IO(s"You $win")
           _ <- updateBalance(win.win, login)
           bal2 <- getBalance(login)

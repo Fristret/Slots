@@ -15,7 +15,7 @@ object Doobie extends IOApp.Simple {
   )
 
   def createPlayer(player: Player): IO[String] = {
-    val createPlayer = sql"INSERT INTO players (login, password, amount) VALUES (${player.login}, ${player.password}, 1000)"
+    val createPlayer = sql"INSERT INTO players (login, password, amount) VALUES (${player.login}, ${player.password}, 100000)"
     createPlayer.update.run.transact(xa).attempt.flatMap{
       case Left(error) => IO.raiseError(new IllegalAccessError("Player exists"))
       case Right(value) => IO("Good")

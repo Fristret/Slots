@@ -3,11 +3,10 @@ package Game
 object SlotObjects {
 
   trait SlotEnvironment
-  case class Column(elements: List[Element]) extends SlotEnvironment
+  case class Column(elements: Map[Int, Element] = Map.empty[Int, Element]) extends SlotEnvironment
   case class Screen(screen: List[Column]) extends SlotEnvironment
-  case class Configure(configure: Map[Element, Int]) extends SlotEnvironment {
-    def apply(value: Map[Element, Int]): Configure = Configure(value)
-  }
+  case class Configure(configure: List[List[Element]]) extends SlotEnvironment
+  case class Payment(win: Int, configure: Configure) extends SlotEnvironment
 
   trait Element
   case object Point5 extends Element
@@ -18,6 +17,6 @@ object SlotObjects {
   case object Chest extends Element
   case object Jackpot extends Element
   case object FreeSpins extends Element
-  case object Multiply extends Element
   case object Action extends Element
+  case object Wild extends Element
 }
