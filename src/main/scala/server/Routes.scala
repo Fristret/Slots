@@ -33,7 +33,7 @@ object Routes {
   // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana23\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
 
   //websocat ws://127.0.0.1:9001/message/ token
-  //websocat ws://127.0.0.1:9001/message/"2fb8a3d5-d0bf-46f4-a59b-d50001bf935b&masana23"
+  //websocat ws://127.0.0.1:9001/message/"8c9b8f21-414d-476b-b034-0d62e618c66b&masana23"
   //вход Bet: {"amount": "200"}
   //вход Balance: {"message": "balance"}
 

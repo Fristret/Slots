@@ -5,7 +5,7 @@ import RNG._
 import cats.effect._
 import server.Protocol.{Bet, Login, Win}
 import CheckScreen._
-import Game.RPG.{createNewRPG, playRPG}
+import Game.RPG.{createNewRPG, createNewStage, playRPG}
 import Game.RPGElements.Stage
 
 import scala.annotation.tailrec
@@ -65,20 +65,20 @@ object Slot{
   }
 
   @tailrec
-  def paymentCheck(list: List[List[Element]], bet: Bet, map: Map[Int, Int], count: Int = 1): Map[Int, Int] = if (list.isEmpty) map
+  def paymentCheck(list: List[List[Element]], bet: Bet, map: Map[Int, Int], count: Int = 0): Map[Int, Int] = if (list.isEmpty) map
   else {
     val newList: List[Element] = list.headOption match {
       case None => List()
-      case Some(value) => value.foldLeft(value)((a, b) => if (a.indexOf(Wild) != 0) b match {
-        case Wild => a.updated(a.indexOf(Wild), a.headOption match {
+      case Some(valueList) => valueList.foldLeft(valueList)((a, b) => if (a.indexOf(Wild) != 0) b match {
+        case Wild => valueList.updated(valueList.indexOf(Wild), valueList.headOption match {
           case None => Point5
           case Some(value) => value
         })
-        case _ => a
+        case _ => valueList
       }
       else b match {
-        case Wild => a.updated(a.indexOf(Wild), a(1))
-        case _ => a
+        case Wild => valueList.updated(valueList.indexOf(Wild), valueList(1))
+        case _ => valueList
       })
     }
 
@@ -191,12 +191,18 @@ object Slot{
         val newMap = map.updated(count,(bet.amount * 0.1).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
       }
-      case _ => paymentCheck(list.tailSave, bet,map, count + 1)
+      case _ => paymentCheck(list.tailSave, bet, map, count + 1)
     }
   }
 
   def getWinningConfigure(list: List[List[Element]], set: List[Int]): List[List[Element]] = set.headOption match {
-    case Some(x) => List(list(x-1)) ++ getWinningConfigure(list, set.tail)
+    case Some(x) => x match {
+      case 0 => List(list.headOption match {
+        case None => List()
+        case Some(value) => value
+      }) ++ getWinningConfigure(list, set.tail)
+      case x => List(list(x)) ++ getWinningConfigure(list, set.tail)
+    }
     case None => List()
   }
 
@@ -212,10 +218,18 @@ object Slot{
     val configure = generateConfigure(screen)
     val payment = paymentCheck(configure.value, bet, Map.empty[Int, Int])
     val listOfKeys = payment.keys.toList
-    val listWithWin = getWinningConfigure(configure.value, listOfKeys.tailSave)
+    val listWithWin = getWinningConfigure(configure.value, listOfKeys)
     val listRPGAction = getElements(listWithWin)
-    val rewardsRPG = playRPG(listRPGAction, login, bet, rpgProgress)
-    Win(payment.foldLeft(0)(_ +_._2), Configure(listWithWin), rewardsRPG)
+    val rewardsRPG = playRPG(listRPGAction, login, bet, rpgProgress).unsafeRunSync()
+    val stageRPG = rewardsRPG.keys.toList.headOption match {
+      case None => createNewStage
+      case Some(x) => x
+    }
+    val winRPG = rewardsRPG.get(stageRPG) match {
+      case None => 0
+      case Some(value) => value
+    }
+    Win(payment.foldLeft(0)(_ +_._2) + winRPG, Configure(listWithWin), stageRPG)
   }
 
   def spin(bet: Bet, login: Login, rpgProgress: Ref[IO, Map[Login, Stage]]): IO[Win] = {

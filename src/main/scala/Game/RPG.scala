@@ -5,12 +5,13 @@ import Game.SlotObjects._
 import cats.effect.concurrent.Ref
 import cats.effect.{ExitCode, IO, IOApp}
 import server.Protocol.{Bet, Login}
-
 import RNG._
+
+import scala.math.pow
 
 object RPG {
 
-  def createNewStage: Stage = Stage(1, 1, Mob(3, 0, 1), Hero(5, 1, Ammunition(0, 0, 0, 0, 0)), 0)
+  def createNewStage: Stage = Stage(1, 1, Mob(3, 1, 1), Hero(5, 1, Ammunition(0, 0, 0, 0, 0)), 0)
 
   def createNewRPG(name: Login, rpgProgress: Ref[IO, Map[Login, Stage]]): IO[Map[Login, Stage]] = rpgProgress.modify{
     map => map.get(name) match {
@@ -49,67 +50,70 @@ object RPG {
     }
   }
 
-  def fight(stage: Stage): Stage =
-    heroAttack(stage.enemy, stage.hero) match {
-      case boss: Boss => if (boss.hp <= 0) Stage(0, stage.level + 1, Mob(3 + stage.level, 1, 1), stage.hero, 0)
+  def fight(doDmgOrNot: Boolean, stage: Stage, bet: Bet): Map[Stage, Int] =
+    (if (doDmgOrNot) stage.enemy
+    else heroAttack(stage.enemy, stage.hero)) match {
+      case boss: Boss => if (boss.hp <= 0) Map(Stage(1, stage.level + 1, Mob(3 + stage.level, 1, 1), stage.hero, 0) -> bet.amount * pow(10, stage.level).toInt)
         else stage.turn match {
         case 5 =>
           val newHero = enemyAttack(stage.enemy, stage.hero)
           newHero.hp match {
-            case i if i <= 0 => createNewStage
-            case _ => Stage(stage.room, stage.level, boss, newHero, 0)
+            case i if i <= 0 => Map(createNewStage -> 0)
+            case _ => Map(Stage(stage.room, stage.level, boss, newHero, 0) -> 0)
           }
-        case _ => Stage(stage.room, stage.level, boss, stage.hero, stage.turn + 1)
+        case _ => Map(Stage(stage.room, stage.level, boss, stage.hero, stage.turn + 1) -> 0)
       }
 
-      case miniBoss: MiniBoss => if (miniBoss.hp <= 0) Stage(stage.room + 1, stage.level, Mob(3 + stage.level, 1, 1), stage.hero, 0)
+      case miniBoss: MiniBoss => if (miniBoss.hp <= 0) Map(Stage(stage.room + 1, stage.level, Mob(3 + stage.level, 1, 1), stage.hero, 0) -> bet.amount * pow(5, stage.level).toInt)
       else stage.turn match {
         case 10 =>
           val newHero = enemyAttack(stage.enemy, stage.hero)
           newHero.hp match {
-            case i if i <= 0 => createNewStage
-            case _ => Stage(stage.room + 1, stage.level, Mob(3 + stage.level, 1, 1), newHero, 0)
+            case i if i <= 0 => Map(createNewStage -> 0)
+            case _ => Map(Stage(stage.room + 1, stage.level, Mob(3 + stage.level, 1, 1), newHero, 0) -> 0)
           }
-        case _ => Stage(stage.room, stage.level, miniBoss, stage.hero, stage.turn + 1)
+        case _ => Map(Stage(stage.room, stage.level, miniBoss, stage.hero, stage.turn + 1) -> 0)
       }
 
-      case mob: Mob => if (mob.hp <= 0) stage.room match {
+      case mob: Mob => if (mob.hp <= 0) Map((stage.room match {
         case 10 => Stage(stage.room + 1, stage.level, Boss(10 + (10 * stage.level - 1), 1, 2), stage.hero, 0)
         case 5 => Stage(stage.room + 1, stage.level, MiniBoss(7 + stage.level - 1, 1, 3), stage.hero, 0)
-        case _ => Stage(stage.room + 1, stage.level, Mob(3 + stage.level, 1, 1), stage.hero, 0)
-      }
+        case _ => Stage(stage.room + 1, stage.level, Mob(3 + stage.level - 1, 1, 1), stage.hero, 0)
+      }) -> (bet.amount * pow(2, stage.level).toInt))
       else stage.turn match {
         case 7 =>
           val newHero = enemyAttack(stage.enemy, stage.hero)
           newHero.hp match {
-            case i if i <= 0 => createNewStage
-            case _ => Stage(stage.room, stage.level, mob, newHero, 0)
+            case i if i <= 0 => Map(createNewStage -> 0)
+            case _ => Map(Stage(stage.room, stage.level, mob, newHero, 0) -> 0)
           }
-        case _ => Stage(stage.room, stage.level, mob, stage.hero, stage.turn + 1)
+        case _ => Map(Stage(stage.room, stage.level, mob, stage.hero, stage.turn + 1) -> 0)
       }
     }
 
-  def updateProgress(login: Login, stage: Stage, rpgProgress: Ref[IO, Map[Login, Stage]]) = rpgProgress.modify(
+  def updateProgress(login: Login, stage: Stage, rpgProgress: Ref[IO, Map[Login, Stage]]): IO[Unit] = rpgProgress.update(
     map => map.get(login) match {
-      case None => (map + (login -> stage), map)
-      case Some(value) => (map + (login -> stage), map)
+      case None => map ++ Map(login -> stage)
+      case Some(value) => map ++ Map(login -> stage)
     }
   )
 
-  def getStage(login: Login, rpgProgress: Ref[IO, Map[Login, Stage]]) = rpgProgress.get.flatMap(map => map.get(login) match {
+  def getStage(login: Login, rpgProgress: Ref[IO, Map[Login, Stage]]): IO[Stage] = rpgProgress.get.flatMap(map => map.get(login) match {
     case None => IO.raiseError(new IllegalAccessError("Hero didn't exist"))
     case Some(value) => IO(value)
   }
   )
 
 
-  def playRPG(list: List[Element], login: Login,  bet: Bet, rpgProgress: Ref[IO, Map[Login, Stage]]): Stage = {
-    val stage = getStage(login, rpgProgress).unsafeRunSync()
-    val newStage = fight(stage)
-    updateProgress(login, newStage, rpgProgress)
-    newStage
-  }
-
+  def playRPG(list: List[Element], login: Login,  bet: Bet, rpgProgress: Ref[IO, Map[Login, Stage]]): IO[Map[Stage, Int]] = for {
+    stage <- getStage(login, rpgProgress)
+    map = fight(list.isEmpty, stage, bet)
+    newStage = map.keys.toList.headOption match {
+              case None => stage
+              case Some(value) => value
+            }
+    _ <- updateProgress(login, newStage, rpgProgress)
+  } yield map
 
 //  - <- list.headOption match {
 //    case None => 0
