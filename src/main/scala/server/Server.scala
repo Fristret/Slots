@@ -10,24 +10,27 @@ import scala.concurrent.ExecutionContext
 import Routes._
 import server.CommonClasses.Token
 import Cache._
+import Game.RPGElements.Stage
+import server.Protocol.Login
 
 import java.time.Instant
 
 object Server extends IOApp {
 
-  private[server] def httpApp(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]]) = {
-    messageRoute(topic, cache)
+  private[server] def httpApp(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]], rpgProgress: Ref[IO, Map[Login, Stage]]) = {
+    messageRoute(topic, cache, rpgProgress)
   }.orNotFound
 
   override def run(args: List[String]): IO[ExitCode] = {
     for {
       cache <- Ref[IO].of(Map.empty[Token, Instant])
+      ref <- Ref[IO].of(Map.empty[Login, Stage])
       _ <- Doobie.run
       _ <- cacheOptimizer(cache).start
       topic <- Topic[IO, String]("Welcome. Write your request")
       _ <- BlazeServerBuilder[IO](ExecutionContext.global)
         .bindHttp(port = 9001, host = "localhost")
-        .withHttpApp(httpApp(topic, cache))
+        .withHttpApp(httpApp(topic, cache, ref))
         .serve
         .compile
         .drain

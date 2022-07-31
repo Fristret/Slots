@@ -12,28 +12,32 @@ import org.http4s.websocket.WebSocketFrame
 import server.Protocol._
 import io.jvm.uuid._
 import server.CommonClasses.Token
-import Game.Slot.spin
+import Game.Slot._
+import Game.RPGElements._
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import CheckSyntax._
 import Doobie._
+import Game.RPG.createNewRPG
+import Game.RPGElements.Stage
+import io.circe.syntax.EncoderOps
 
 object Routes {
 
   import MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"mail\":\"d\"}, \"player\":{\"login\": {\"login\": \"masana23\"},\"password\": {\"password\": \"mig943g\"}}}" http://localhost:9001/authorization
+  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"value\":\"d\"}, \"player\":{\"login\": {\"value\": \"masana23\"},\"password\": {\"value\": \"mig943g\"}}}" http://localhost:9001/authorization
 
-  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"login\": \"masana23\"},\"password\": {\"password\": \"mig943g\"}}" http://localhost:9001/authorization
+  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana23\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
 
   //websocat ws://127.0.0.1:9001/message/ token
-  //websocat ws://127.0.0.1:9001/message/"fcdec9da-d377-4824-b35c-ba45a2282bf6&masana23"
+  //websocat ws://127.0.0.1:9001/message/"2fb8a3d5-d0bf-46f4-a59b-d50001bf935b&masana23"
   //вход Bet: {"amount": "200"}
   //вход Balance: {"message": "balance"}
 
-  def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]]): HttpRoutes[IO] = {
+  def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]], rpgProgress: Ref[IO, Map[Login, Stage]]): HttpRoutes[IO] = {
 
     HttpRoutes.of[IO] {
       case GET -> Root / "message" / id =>
@@ -44,13 +48,11 @@ object Routes {
           _ => Some(Login(token.id.split("&").reverse.head))
         }
 
-        //написать Игру
         def doBet(bet: Bet, login: Login): IO[String] = for {
-          win <- updateBalance( - bet.amount, login).handleErrorWith(e => IO(s"You haven't money to Bet")) *> spin(bet)
-          res <- IO(s"You $win")
-          _ <- updateBalance(win.win, login)
-          bal2 <- getBalance(login)
-          _ <- topic.publish1(bal2)
+          win <- updateBalance( - bet.amount, login).handleErrorWith(_ => IO(s"You haven't money to Bet")) *> spin(bet, login, rpgProgress)
+          res <- IO(s"Your $win")
+          _ <- topic.publish1(WinOutput(login.value, win.value, Instant.now()).asJson.toString)
+          _ <- updateBalance(win.value, login)
         } yield res
 
         def toClient: Stream[IO, WebSocketFrame] = topic
@@ -80,14 +82,15 @@ object Routes {
         for {
           res <- verification.flatMap {
             case None => BadRequest()
-            case Some(x) => for {
-              _ <- cache.modify(map => (map.removed(token), s"Welcome, $x"))
+            case Some(name) => for {
+              _ <- createNewRPG(name, rpgProgress)
+              _ <- cache.modify(map => (map.removed(token), s"Welcome, $name"))
               _ <- topic.publish1(
                 """|Выберите функцию:
                    |1. Сделать ставку (bet)
                    |2. Посмотреть баланс (balance)
                    |""".stripMargin)
-              response <- WebSocketBuilder[IO].build(receive = fromClient(x), send = toClient)
+              response <- WebSocketBuilder[IO].build(receive = fromClient(name), send = toClient)
             } yield response
           }
         } yield res
@@ -95,7 +98,7 @@ object Routes {
       case req @ POST -> Root / "authorization" =>
 
         def tokenGenerator(player: Player): IO[Token] = {
-          val id = Token(UUID.randomString ++ "&" ++ player.login.login)
+          val id = Token(UUID.randomString ++ "&" ++ player.login.value)
           cache
             .modify { map =>
               (map + (id -> Instant.now().plus(5.toLong, ChronoUnit.MINUTES)), id)

@@ -4,8 +4,8 @@ object SlotObjects {
 
   trait SlotEnvironment
   case class Column(elements: Map[Int, Element] = Map.empty[Int, Element]) extends SlotEnvironment
-  case class Screen(screen: List[Column]) extends SlotEnvironment
-  case class Configure(configure: List[List[Element]]) extends SlotEnvironment
+  case class Screen(value: List[Column]) extends SlotEnvironment
+  case class Configure(value: List[List[Element]]) extends SlotEnvironment
   case class Payment(win: Int, configure: Configure) extends SlotEnvironment
 
   trait Element
@@ -19,4 +19,5 @@ object SlotObjects {
   case object FreeSpins extends Element
   case object Action extends Element
   case object Wild extends Element
+  case object NoElement extends Element
 }
