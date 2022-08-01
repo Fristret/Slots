@@ -13,7 +13,6 @@ import server.Protocol._
 import io.jvm.uuid._
 import server.CommonClasses.Token
 import Game.Slot._
-import Game.RPGElements._
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit

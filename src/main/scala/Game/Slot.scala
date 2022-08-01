@@ -5,7 +5,7 @@ import RNG._
 import cats.effect._
 import server.Protocol.{Bet, Login, Win}
 import CheckScreen._
-import Game.RPG.{createNewRPG, createNewStage, playRPG}
+import Game.RPG.{createNewStage, playRPG}
 import Game.RPGElements.Stage
 
 import scala.annotation.tailrec
@@ -83,114 +83,87 @@ object Slot{
     }
 
     newList match {
-      case List(Point5, Point5, Point5, Point5, Point5) => {
+      case List(Point5, Point5, Point5, Point5, Point5) =>
         val newMap = map.updated(count, (bet.amount * 0.4).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Point5, Point5, Point5, Point5, _) => {
+      case List(Point5, Point5, Point5, Point5, _) =>
         val newMap = map.updated(count,(bet.amount * 0.45).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Point5, Point5, Point5, _, _) => {
+      case List(Point5, Point5, Point5, _, _) =>
         val newMap = map.updated(count,(bet.amount * 0.3).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Point10, Point10, Point10, Point10, Point10) => {
+      case List(Point10, Point10, Point10, Point10, Point10) =>
         val newMap = map.updated(count,(bet.amount * 0.5).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Point10, Point10, Point10, Point10, _) => {
+      case List(Point10, Point10, Point10, Point10, _) =>
         val newMap = map.updated(count,(bet.amount * 0.4).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Point10, Point10, Point10, _, _) => {
+      case List(Point10, Point10, Point10, _, _) =>
         val newMap = map.updated(count,(bet.amount * 0.3).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Sword, Sword, Sword, Sword, Sword) => {
+      case List(Sword, Sword, Sword, Sword, Sword) =>
         val newMap = map.updated(count,(bet.amount * 0.9).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Sword, Sword, Sword, Sword, _) => {
+      case List(Sword, Sword, Sword, Sword, _) =>
         val newMap = map.updated(count,(bet.amount * 0.8).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Sword, Sword, Sword, _, _) => {
+      case List(Sword, Sword, Sword, _, _) =>
         val newMap = map.updated(count,(bet.amount * 0.7).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Bag, Bag, Bag, Bag, Bag) => {
+      case List(Bag, Bag, Bag, Bag, Bag) =>
         val newMap = map.updated(count,(bet.amount * 0.9).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Bag, Bag, Bag, Bag, _) => {
+      case List(Bag, Bag, Bag, Bag, _) =>
         val newMap = map.updated(count,(bet.amount * 0.8).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Bag, Bag, Bag, _, _) => {
+      case List(Bag, Bag, Bag, _, _) =>
         val newMap = map.updated(count,(bet.amount * 0.7).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Chest, Chest, Chest, Chest, Chest) => {
-        val newMap = map.updated(count,(bet.amount * 2))
+      case List(Chest, Chest, Chest, Chest, Chest) =>
+        val newMap = map.updated(count, bet.amount * 2)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Chest, Chest, Chest, Chest, _) => {
+      case List(Chest, Chest, Chest, Chest, _) =>
         val newMap = map.updated(count,(bet.amount * 1.6).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Chest, Chest, Chest, _, _) => {
+      case List(Chest, Chest, Chest, _, _) =>
         val newMap = map.updated(count,(bet.amount * 1.5).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Jackpot, Jackpot, Jackpot, Jackpot, Jackpot) => {
-        val newMap = map.updated(count,(bet.amount * 1000))
+      case List(Jackpot, Jackpot, Jackpot, Jackpot, Jackpot) =>
+        val newMap = map.updated(count, bet.amount * 1000)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Jackpot, Jackpot, Jackpot, Jackpot, _) => {
-        val newMap = map.updated(count,(bet.amount * 500))
+      case List(Jackpot, Jackpot, Jackpot, Jackpot, _) =>
+        val newMap = map.updated(count, bet.amount * 500)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Jackpot, Jackpot, Jackpot, _, _) => {
-        val newMap = map.updated(count,(bet.amount * 100))
+      case List(Jackpot, Jackpot, Jackpot, _, _) =>
+        val newMap = map.updated(count, bet.amount * 100)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, FreeSpins) => {
+      case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, FreeSpins) =>
         val newMap = map.updated(count,(bet.amount * 1.5).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, _) => {
+      case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, _) =>
         val newMap = map.updated(count,(bet.amount * 1.2).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(FreeSpins, FreeSpins, FreeSpins, _, _) => {
+      case List(FreeSpins, FreeSpins, FreeSpins, _, _) =>
         val newMap = map.updated(count,(bet.amount * 1.1).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(MiniGame, MiniGame, MiniGame, MiniGame, MiniGame) => {
+      case List(MiniGame, MiniGame, MiniGame, MiniGame, MiniGame) =>
         val newMap = map.updated(count,(bet.amount * 0.75).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(MiniGame, MiniGame, MiniGame, MiniGame, _) => {
+      case List(MiniGame, MiniGame, MiniGame, MiniGame, _) =>
         val newMap = map.updated(count,(bet.amount * 0.7).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(MiniGame, MiniGame, MiniGame, _, _) => {
+      case List(MiniGame, MiniGame, MiniGame, _, _) =>
         val newMap = map.updated(count,(bet.amount * 0.6).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Action, Action, Action, Action, Action) => {
+      case List(Action, Action, Action, Action, Action) =>
         val newMap = map.updated(count,(bet.amount * 0.3).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Action, Action, Action, Action, _) => {
+      case List(Action, Action, Action, Action, _) =>
         val newMap = map.updated(count,(bet.amount * 0.2).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
-      case List(Action, Action, Action, _, _) => {
+      case List(Action, Action, Action, _, _) =>
         val newMap = map.updated(count,(bet.amount * 0.1).toInt)
         paymentCheck(list.tailSave, bet, newMap, count + 1)
-      }
       case _ => paymentCheck(list.tailSave, bet, map, count + 1)
     }
   }
