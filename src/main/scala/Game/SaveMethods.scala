@@ -23,6 +23,11 @@ object SaveMethods {
     case Some(x) => x
   }
 
+  implicit val elementTail: SaveTail[Element] = (list: List[Element]) => Option(list.drop(1)) match {
+    case None => List()
+    case Some(x) => x
+  }
+
   implicit val listTail: SaveTail[List[Element]] = (list: List[List[Element]]) => Option(list.drop(1)) match {
     case None => List(List())
     case Some(x) => x

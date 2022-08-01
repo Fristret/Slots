@@ -14,11 +14,16 @@ object RPGElements {
   trait RPGEnvironment
   case class Stage(room: Int, level: Int, enemy: Enemy, hero: Hero, turn: Int) extends RPGEnvironment
 
-  trait Equipment
-  case object HelmetRPG extends  Equipment
-  case object SwordRPG extends Equipment
-  case object BagRPG extends Equipment
-  case object ShieldRPG extends Equipment
-  case object BootsRPG extends Equipment
+//  trait Equipment
+//  case object HelmetRPG extends  Equipment
+//  case object SwordRPG extends Equipment
+//  case object BagRPG extends Equipment
+//  case object ShieldRPG extends Equipment
+//  case object BootsRPG extends Equipment
 
+  trait ActionRPG
+  case object Damage extends ActionRPG
+  case object Heal extends ActionRPG
+  case object Upgrade extends ActionRPG
+  case object Death extends ActionRPG
 }

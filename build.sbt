@@ -34,3 +34,5 @@ libraryDependencies ++= Seq(
   "org.tpolecat" %% "doobie-postgres-circe" % doobieVersion,
   "org.tpolecat" %% "doobie-hikari" % doobieVersion,
 )
+
+//addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.0.0")
