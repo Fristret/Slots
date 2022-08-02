@@ -1,6 +1,6 @@
 package server
 
-import cats.effect.IO
+import cats.effect._
 import cats.effect.concurrent.Ref
 import fs2.{Pipe, Stream}
 import fs2.concurrent.Topic
@@ -22,7 +22,11 @@ import Game.RPG.createNewRPG
 import Game.RPGElements.Stage
 import io.circe.syntax.EncoderOps
 
+import scala.concurrent.ExecutionContext
+
 object Routes {
+
+  implicit private val cs = IO.contextShift(ExecutionContext.global)
 
   import MessageJson._
   import org.http4s.circe.CirceEntityCodec._
@@ -32,7 +36,7 @@ object Routes {
   // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana23\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
 
   //websocat ws://127.0.0.1:9001/message/ token
-  //websocat ws://127.0.0.1:9001/message/"8c9b8f21-414d-476b-b034-0d62e618c66b&masana23"
+  //websocat ws://127.0.0.1:9001/message/"408657bb-9747-4117-bc4e-491493124388&masana23"
   //вход Bet: {"amount": "200"}
   //вход Balance: {"message": "balance"}
 
@@ -48,11 +52,13 @@ object Routes {
         }
 
         def doBet(bet: Bet, login: Login): IO[String] = for {
-          win <- updateBalance( - bet.amount, login).handleErrorWith(_ => IO(s"You haven't money to Bet")) *> spin(bet, login, rpgProgress)
-          res <- IO(s"Your $win")
-          _ <- topic.publish1(WinOutput(login.value, win.value, Instant.now()).asJson.toString)
+          fiber <- updateBalance( - bet.amount, login).handleErrorWith(_ => IO(s"You haven't money to Bet")) *> spin(bet, login, rpgProgress).start
+          _ <- IO(s"Your bet accepted")
+          win <- fiber.join
+          _ <- if (win.value >= 1000) topic.publish1(WinOutput(login.value, win.value, Instant.now()).asJson.toString)
+          else IO.unit
           _ <- updateBalance(win.value, login)
-        } yield res
+        } yield win.value.asJson.noSpaces
 
         def toClient: Stream[IO, WebSocketFrame] = topic
           .subscribe(3)

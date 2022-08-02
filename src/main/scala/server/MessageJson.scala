@@ -5,6 +5,8 @@ import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, Encoder}
 import server.Protocol._
 import server.CommonClasses._
+import Game.RPGElements._
+import Game.SlotObjects._
 
 
 object MessageJson {
