@@ -75,10 +75,10 @@ class RPGTests extends AnyFreeSpec with Matchers{
       val stage11: Stage = Stage(5, 1, Mob(1, 1, 0), Hero(2, 1, Ammunition(0, 10, 2, 0, 0)), 1)
       val stage2: Stage = Stage(6, 3, MiniBoss(1, 1, 0), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 1)
       val stage3: Stage = Stage(11, 3, Boss(1, 1, 0), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 1)
-      fight(NotDoDmgOrDo = false, stage1, Bet(20)) should be (Map(Stage(2, 1, Mob(3, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 20 * pow(2, stage1.level)))
-      fight(NotDoDmgOrDo = false, stage11, Bet(200)) should be (Map(Stage(6, 1, MiniBoss(5, 1, 2), Hero(2, 1, Ammunition(0, 10, 2, 0, 0)), 0) -> (200 * pow(2, stage11.level) * (1 + 0.1 * stage11.hero.ammunition.bag + 1)).toInt))
-      fight(NotDoDmgOrDo = false, stage2, Bet(20)) should be (Map(Stage(7, 3, Mob(5, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 20 * pow(5, stage2.level)))
-      fight(NotDoDmgOrDo = false, stage3, Bet(20)) should be (Map(Stage(1, 4, Mob(6, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 20 * pow(10, stage3.level)))
+      fight(NotDoDmgOrDo = false, stage1, Bet(20)) should be (Map(Stage(2, 1, Mob(3, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 20 * 0.2 * stage1.level))
+      fight(NotDoDmgOrDo = false, stage11, Bet(200)) should be (Map(Stage(6, 1, MiniBoss(5, 1, 2), Hero(2, 1, Ammunition(0, 10, 2, 0, 0)), 0) -> (0.2 * 200 * stage11.level * (1 + 0.1 * stage11.hero.ammunition.bag + 1)).toInt))
+      fight(NotDoDmgOrDo = false, stage2, Bet(20)) should be (Map(Stage(7, 3, Mob(5, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 0.5 * 20 * pow(2, stage2.level)))
+      fight(NotDoDmgOrDo = false, stage3, Bet(20)) should be (Map(Stage(1, 4, Mob(6, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 20 * pow(5, stage3.level)))
     }
     "Hero Death" in {
       val stage: Stage = Stage(1, 1, Mob(1, 1, 0), Hero(1, 0, Ammunition(0, 0, 0, 0, 0)), 7)
@@ -99,5 +99,4 @@ class RPGTests extends AnyFreeSpec with Matchers{
       updateStage(list,customStage) should be (Stage(2, 3, Mob(-7, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 1))
     }
   }
-
 }

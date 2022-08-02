@@ -26,7 +26,7 @@ object CheckSyntax {
     case Right(_) => newPlayer.player.checkSyntax
     case Left(err) => Left(err)
   }
-  implicit val betSyntax: Syntax[Bet] = (bet: Bet) => if (bet.amount >= 40 && bet.amount <= 10000) Right()
+  implicit val betSyntax: Syntax[Bet] = (bet: Bet) => if (bet.amount >= 10 && bet.amount <= 10000) Right()
   else Left("Wrong bet")
 
   implicit class SyntaxOps[A](value: A) {

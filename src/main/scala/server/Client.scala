@@ -13,8 +13,8 @@ package server
 //import scala.io.StdIn
 //import CommonClasses._
 //import cats.implicits.catsSyntaxFlatMapOps
-
-
+//
+//
 //object Client extends IOApp {
 //
 //  import MessageJson._
@@ -32,26 +32,26 @@ package server
 //
 //  override def run(args: List[String]): IO[ExitCode] = {
 //    for {
-////    tok <- BlazeClientBuilder[IO](ExecutionContext.global).resource.use { client =>
-////      for {
-////      _ <- printLine("Im Born. Enter your message: 1. NewPlayer, 2. LogIn")
-////        message = StdIn.readLine().trim match {
-////          case "1" => "NewPlayer"
-////          case "2" => "LogIn"
-////          case _ => throw new Exception("Wrong message")
-////        }
-////        _ <- printLine(message)
-////        _ <- printLine("Enter your login")
-////        login = StdIn.readLine().trim
-////        _ <- printLine("Enter your password")
-////        password = StdIn.readLine().trim
-////        json = Json.obj("message" -> Json.fromString(message), "login" -> Json.fromString(login), "password" -> Json.fromString(password))
-////        request = Request[IO](method = POST, uri).withEntity(json)
-////        token <- client.fetchAs[Token](request)
-////        _ <- printLine(token.toString)
-////      } yield token
-////    }
-////    _ <- printLine("Tyta")
+//    tok <- BlazeClientBuilder[IO](ExecutionContext.global).resource.use { client =>
+//      for {
+//      _ <- printLine("Im Born. Enter your message: 1. NewPlayer, 2. LogIn")
+//        message = StdIn.readLine().trim match {
+//          case "1" => "NewPlayer"
+//          case "2" => "LogIn"
+//          case _ => throw new Exception("Wrong message")
+//        }
+//        _ <- printLine(message)
+//        _ <- printLine("Enter your login")
+//        login = StdIn.readLine().trim
+//        _ <- printLine("Enter your password")
+//        password = StdIn.readLine().trim
+//        json = Json.obj("message" -> Json.fromString(message), "login" -> Json.fromString(login), "password" -> Json.fromString(password))
+//        request = Request[IO](method = POST, uri).withEntity(json)
+//        token <- client.fetchAs[Token](request)
+//        _ <- printLine(token.toString)
+//      } yield token
+//    }
+//    _ <- printLine("Tyta")
 //      _ <- clientResource(tok).use { conn =>
 //        for {
 //          _ <- printLine(tok.toString)

@@ -17,23 +17,21 @@ import java.time.Instant
 
 object Server extends IOApp {
 
-  private[server] def httpApp(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]], rpgProgress: Ref[IO, Map[Login, Stage]]) = {
-    messageRoute(topic, cache, rpgProgress)
-  }.orNotFound
+  private[server] val httpApp = for {
+    cache <- Ref[IO].of(Map.empty[Token, Instant])
+    rpgProgress <- Ref[IO].of(Map.empty[Login, Stage])
+    _ <- Doobie.run
+    _ <- cacheOptimizer(cache).start
+    topic <- Topic[IO, String]("Welcome. Write your request")
+  } yield messageRoute(topic, cache, rpgProgress).orNotFound
 
-  override def run(args: List[String]): IO[ExitCode] = {
-    for {
-      cache <- Ref[IO].of(Map.empty[Token, Instant])
-      ref <- Ref[IO].of(Map.empty[Login, Stage])
-      _ <- Doobie.run
-      _ <- cacheOptimizer(cache).start
-      topic <- Topic[IO, String]("Welcome. Write your request")
-      _ <- BlazeServerBuilder[IO](ExecutionContext.global)
-        .bindHttp(port = 9001, host = "localhost")
-        .withHttpApp(httpApp(topic, cache, ref))
-        .serve
-        .compile
-        .drain
-    } yield ExitCode.Success
-  }
+  override def run(args: List[String]): IO[ExitCode] = for {
+    httpApp <- httpApp
+    _ <- BlazeServerBuilder[IO](ExecutionContext.global)
+      .bindHttp(port = 9001, host = "localhost")
+      .withHttpApp(httpApp)
+      .serve
+      .compile
+      .drain
+  }yield ExitCode.Success
 }

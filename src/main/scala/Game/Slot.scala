@@ -11,20 +11,21 @@ import Game.RPGElements.Stage
 import scala.annotation.tailrec
 import SaveMethods._
 import cats.effect.concurrent.Ref
+import cats.implicits.catsSyntaxSemigroup
 
 object Slot{
 
   def getObject: Element = generator match {
-    case i if i == 1 => Jackpot //1%
-    case i if i % 10 == 2 && i < 50 => FreeSpins //5%
-    case i if i % 10 == 2 && i > 50 => Action // 4%
-    case i if i % 10 == 3 && i < 50 => Chest //5%
-    case i if i % 10 == 6 && i > 50 => Bag //5%
-    case i if i % 5 == 0 && i <= 50 => Sword //15%
-    case i if i % 10 == 6 && i < 50 => MiniGame //5%
-    case i if i % 10 == 8 || i % 10 == 4 => Point10 // 20%
-    case i if i % 10 == 9 => Wild //10%
-    case _ => Point5 //30 %
+    case i if i % 10 == 1 && i < 10 => Jackpot //1%
+    case i if i % 10 == 1 && i > 40 => Action // 6%
+    case i if i % 10 == 7 && i > 40 => FreeSpins //6%
+    case i if i % 10 == 3 && i < 100=> Chest //10%
+    case i if i % 10 == 6 && i < 100=> Bag //10%
+    case i if i % 10 == 4 && i < 100=> Sword //10%
+    case i if i % 10 == 7 && i < 40 => MiniGame //4%
+    case i if i % 10 == 8 || i % 10 == 7 => Point10// 20%
+    case i if i % 10 == 9 && i < 50 => Wild //5%
+    case _ => Point5 //28 %
   }
 
   def generateColumn: Column = {
@@ -43,140 +44,79 @@ object Slot{
     Screen(List(column1, column2, column3, column4, column5))
   }
 
-  def generateConfigure(screen: Screen): Configure = {
-    Configure(List(
-      checkRow(1, 1, screen.value),
-      checkRow(2, 1, screen.value),
-      checkRow(3, 1, screen.value),
-      check2(1, 1, screen.value),
-      check2(3, 1, screen.value),
-      check3(1, 1, screen.value),
-      check3(3, 1, screen.value),
-      check4(1, 1, screen.value),
-      check4(3, 1, screen.value),
-      check5(1, screen.value),
-      check6(1, 1, screen.value),
-      check6(3, 1, screen.value),
-      check7(2, 1, screen.value),
-      check7(3, 1, screen.value),
-      check8(1, screen.value)
-    )
-    )
+  def winingMap(screen: Screen, bet: Bet): Map[List[Element], Int] = {
+      paymentCheck(checkRow(1, 1, screen.value), bet) |+|
+      paymentCheck(checkRow(2, 1, screen.value), bet) |+|
+        paymentCheck(checkRow(3, 1, screen.value), bet) |+|
+          paymentCheck(check2(1, 1, screen.value), bet) |+|
+            paymentCheck(check2(3, 1, screen.value), bet) |+|
+              paymentCheck(check3(1, 1, screen.value), bet) |+|
+                paymentCheck(check3(3, 1, screen.value), bet) |+|
+                  paymentCheck(check4(1, 1, screen.value), bet) |+|
+                    paymentCheck(check4(3, 1, screen.value), bet) |+|
+                      paymentCheck(check5(1, screen.value), bet) |+|
+                        paymentCheck(check6(1, 1, screen.value), bet) |+|
+                          paymentCheck(check6(3, 1, screen.value), bet) |+|
+                            paymentCheck(check7(2, 1, screen.value), bet) |+|
+                              paymentCheck(check7(3, 1, screen.value), bet) |+|
+                                paymentCheck(check8(1, screen.value), bet)
   }
 
-  @tailrec
-  def paymentCheck(list: List[List[Element]], bet: Bet, map: Map[Int, Int], count: Int = 0): Map[Int, Int] = if (list.isEmpty) map
-  else {
-    val newList: List[Element] = list.headOption match {
-      case None => List()
-      case Some(valueList) => valueList.foldLeft(valueList)((a, b) => if (a.indexOf(Wild) != 0) b match {
-        case Wild => valueList.updated(valueList.indexOf(Wild), valueList.headOption match {
-          case None => Point5
-          case Some(value) => value
-        })
-        case _ => valueList
+  def paymentCheck(list:List[Element], bet: Bet): Map[List[Element], Int] = {
+    val map = Map.empty[List[Element], Int]
+    if (list.isEmpty) map
+    else {
+      val newList: List[Element] = list.indexOf(Wild) match {
+        case 0 => list.map {
+          case Wild => Option(list(1)) match {
+            case None => Wild
+            case Some(x) => x
+          }
+          case anotherElement => anotherElement
+          case _ => NoElement
+        }
+        case -1 => list
+        case _ => list.map{
+          case Wild => list.headOption match {
+            case None => Wild
+            case Some(x) => x
+          }
+          case anotherElement => anotherElement
+          case _ => NoElement
+        }
       }
-      else b match {
-        case Wild => valueList.updated(valueList.indexOf(Wild), valueList(1))
-        case _ => valueList
-      })
-    }
 
-    newList match {
-      case List(Point5, Point5, Point5, Point5, Point5) =>
-        val newMap = map.updated(count, (bet.amount * 0.4).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Point5, Point5, Point5, Point5, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.45).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Point5, Point5, Point5, _, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.3).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Point10, Point10, Point10, Point10, Point10) =>
-        val newMap = map.updated(count,(bet.amount * 0.5).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Point10, Point10, Point10, Point10, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.4).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Point10, Point10, Point10, _, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.3).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Sword, Sword, Sword, Sword, Sword) =>
-        val newMap = map.updated(count,(bet.amount * 0.9).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Sword, Sword, Sword, Sword, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.8).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Sword, Sword, Sword, _, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.7).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Bag, Bag, Bag, Bag, Bag) =>
-        val newMap = map.updated(count,(bet.amount * 0.9).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Bag, Bag, Bag, Bag, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.8).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Bag, Bag, Bag, _, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.7).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Chest, Chest, Chest, Chest, Chest) =>
-        val newMap = map.updated(count, bet.amount * 2)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Chest, Chest, Chest, Chest, _) =>
-        val newMap = map.updated(count,(bet.amount * 1.6).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Chest, Chest, Chest, _, _) =>
-        val newMap = map.updated(count,(bet.amount * 1.5).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Jackpot, Jackpot, Jackpot, Jackpot, Jackpot) =>
-        val newMap = map.updated(count, bet.amount * 1000)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Jackpot, Jackpot, Jackpot, Jackpot, _) =>
-        val newMap = map.updated(count, bet.amount * 500)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Jackpot, Jackpot, Jackpot, _, _) =>
-        val newMap = map.updated(count, bet.amount * 100)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, FreeSpins) =>
-        val newMap = map.updated(count,(bet.amount * 1.5).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, _) =>
-        val newMap = map.updated(count,(bet.amount * 1.2).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(FreeSpins, FreeSpins, FreeSpins, _, _) =>
-        val newMap = map.updated(count,(bet.amount * 1.1).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(MiniGame, MiniGame, MiniGame, MiniGame, MiniGame) =>
-        val newMap = map.updated(count,(bet.amount * 0.75).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(MiniGame, MiniGame, MiniGame, MiniGame, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.7).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(MiniGame, MiniGame, MiniGame, _, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.6).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Action, Action, Action, Action, Action) =>
-        val newMap = map.updated(count,(bet.amount * 0.3).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Action, Action, Action, Action, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.2).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case List(Action, Action, Action, _, _) =>
-        val newMap = map.updated(count,(bet.amount * 0.1).toInt)
-        paymentCheck(list.tailSave, bet, newMap, count + 1)
-      case _ => paymentCheck(list.tailSave, bet, map, count + 1)
+      newList match {
+        case List(Point5, Point5, Point5, Point5, Point5) => map.updated(list, (bet.amount * 0.4).toInt)
+        case List(Point5, Point5, Point5, Point5, _) => map.updated(list,(bet.amount * 0.35).toInt)
+        case List(Point5, Point5, Point5, _, _) => map.updated(list,(bet.amount * 0.3).toInt)
+        case List(Point10, Point10, Point10, Point10, Point10) => map.updated(list,(bet.amount * 0.8).toInt)
+        case List(Point10, Point10, Point10, Point10, _) => map.updated(list,(bet.amount * 0.7).toInt)
+        case List(Point10, Point10, Point10, _, _) => map.updated(list,(bet.amount * 0.6).toInt)
+        case List(Sword, Sword, Sword, Sword, Sword) => map.updated(list,(bet.amount * 0.8).toInt)
+        case List(Sword, Sword, Sword, Sword, _) => map.updated(list,(bet.amount * 0.7).toInt)
+        case List(Sword, Sword, Sword, _, _) => map.updated(list,(bet.amount * 0.6).toInt)
+        case List(Bag, Bag, Bag, Bag, Bag) => map.updated(list,(bet.amount * 0.8).toInt)
+        case List(Bag, Bag, Bag, Bag, _) => map.updated(list,(bet.amount * 0.7).toInt)
+        case List(Bag, Bag, Bag, _, _) => map.updated(list,(bet.amount * 0.6).toInt)
+        case List(Chest, Chest, Chest, Chest, Chest) => map.updated(list, (bet.amount * 0.8).toInt)
+        case List(Chest, Chest, Chest, Chest, _) => map.updated(list,(bet.amount * 0.7).toInt)
+        case List(Chest, Chest, Chest, _, _) => map.updated(list,(bet.amount * 0.6).toInt)
+        case List(Jackpot, Jackpot, Jackpot, Jackpot, Jackpot) => map.updated(list, bet.amount * 1000)
+        case List(Jackpot, Jackpot, Jackpot, Jackpot, _) => map.updated(list, bet.amount * 500)
+        case List(Jackpot, Jackpot, Jackpot, _, _) => map.updated(list, bet.amount * 100)
+        case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, FreeSpins) => map.updated(list,(bet.amount * 1.5).toInt)
+        case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, _) => map.updated(list,(bet.amount * 1.2).toInt)
+        case List(FreeSpins, FreeSpins, FreeSpins, _, _) => map.updated(list,(bet.amount * 1.1).toInt)
+        case List(MiniGame, MiniGame, MiniGame, MiniGame, MiniGame) => map.updated(list,(bet.amount * 0.75).toInt)
+        case List(MiniGame, MiniGame, MiniGame, MiniGame, _) => map.updated(list,(bet.amount * 0.7).toInt)
+        case List(MiniGame, MiniGame, MiniGame, _, _) => map.updated(list,(bet.amount * 0.6).toInt)
+        case List(Action, Action, Action, Action, Action) => map.updated(list,(bet.amount * 1.6).toInt)
+        case List(Action, Action, Action, Action, _) => map.updated(list,(bet.amount * 1.2).toInt)
+        case List(Action, Action, Action, _, _) => map.updated(list,(bet.amount * 0.8).toInt)
+        case _ => map
     }
   }
-
-  def getWinningConfigure(list: List[List[Element]], set: List[Int]): List[List[Element]] = set.headOption match {
-    case Some(x) => x match {
-      case 0 => List(list.headOption match {
-        case None => List()
-        case Some(value) => value
-      }) ++ getWinningConfigure(list, set.tail)
-      case x => List(list(x)) ++ getWinningConfigure(list, set.tail)
-    }
-    case None => List()
   }
 
   def getElements(list: List[List[Element]]): List[Element] = list.headOption match {
@@ -188,10 +128,8 @@ object Slot{
   }
 
   def checkWin(screen: Screen, login: Login, bet: Bet, rpgProgress: Ref[IO, Map[Login, Stage]]): Win = {
-    val configure = generateConfigure(screen)
-    val payment = paymentCheck(configure.value, bet, Map.empty[Int, Int])
-    val listOfKeys = payment.keys.toList
-    val listWithWin = getWinningConfigure(configure.value, listOfKeys)
+    val payment = winingMap(screen, bet)
+    val listWithWin = payment.keys.toList
     val listRPGAction = getElements(listWithWin)
     val rewardsRPG = playRPG(listRPGAction, login, bet, rpgProgress).unsafeRunSync()
     val stageRPG = rewardsRPG.keys.toList.headOption match {

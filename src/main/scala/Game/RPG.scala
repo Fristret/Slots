@@ -66,7 +66,7 @@ object RPG {
     (if (NotDoDmgOrDo) stage.enemy
     else heroAttack(stage.enemy, stage.hero)) match {
       case boss: Boss => if (boss.hp <= 0) Map(Stage(1, stage.level + 1, spawnEnemy(stage), stage.hero, 0) ->
-       (bet.amount * pow(10, stage.level) * (1 + 0.1 * stage.hero.ammunition.bag + 0.3 * - boss.hp)).toInt)
+       (bet.amount * pow(5, stage.level) * (1 + 0.1 * stage.hero.ammunition.bag + 0.3 * - boss.hp)).toInt)
         else stage.turn match {
         case 5 =>
           val newHero = enemyAttack(stage.enemy, stage.hero)
@@ -78,7 +78,7 @@ object RPG {
       }
 
       case miniBoss: MiniBoss => if (miniBoss.hp <= 0) Map(Stage(stage.room + 1, stage.level, spawnEnemy(stage), stage.hero, 0) ->
-        (bet.amount * pow(5, stage.level) * (1 + 0.1 * stage.hero.ammunition.bag + 0.2 * - miniBoss.hp)).toInt)
+        (0.5 * bet.amount * pow(2, stage.level) * (1 + 0.1 * stage.hero.ammunition.bag + 0.2 * - miniBoss.hp)).toInt)
       else stage.turn match {
         case 10 =>
           val newHero = enemyAttack(stage.enemy, stage.hero)
@@ -90,7 +90,7 @@ object RPG {
       }
 
       case mob: Mob => if (mob.hp <= 0) Map(Stage(stage.room + 1, stage.level, spawnEnemy(stage), stage.hero, 0) ->
-        (bet.amount * pow(2, stage.level) * (1 + 0.1 * stage.hero.ammunition.bag + 0.1 * - mob.hp)).toInt)
+        ((0.2 * stage.level) * bet.amount * (1 + 0.1 * stage.hero.ammunition.bag + 0.1 * - mob.hp)).toInt)
       else stage.turn match {
         case 7 =>
           val newHero = enemyAttack(stage.enemy, stage.hero)
