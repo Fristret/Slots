@@ -140,7 +140,7 @@ object Slot{
       case None => 0
       case Some(value) => value
     }
-    Win(payment.foldLeft(0)(_ +_._2) + winRPG, Configure(listWithWin), stageRPG)
+    Win(payment.foldLeft(0)(_ +_._2) + winRPG, Configure(listWithWin), stageRPG, listRPGAction.contains(FreeSpins))
   }
 
   def spin(bet: Bet, login: Login, rpgProgress: Ref[IO, Map[Login, Stage]]): IO[Win] = {

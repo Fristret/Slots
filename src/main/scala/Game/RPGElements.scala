@@ -2,28 +2,22 @@ package Game
 
 object RPGElements {
 
-  trait Enemy
-  case class Boss(hp: Int,  damage: Int, evade: Int) extends Enemy
-  case class MiniBoss(hp: Int,  damage: Int, evade: Int) extends Enemy
-  case class Mob(hp: Int,  damage: Int, evade: Int) extends Enemy
+  sealed trait EnemyType
+  final case object Boss extends EnemyType
+  final case object MiniBoss extends EnemyType
+  final case object Mob extends EnemyType
 
-  trait Character
-  case class Ammunition(helmet: Int, sword: Int, bag: Int, shield: Int, boots: Int) extends Character
-  case class Hero(hp: Int, damage: Int, ammunition: Ammunition) extends Character
+  final case class Enemy(enemyType: EnemyType, hp: Int,  damage: Int, evade: Int)
 
-  trait RPGEnvironment
-  case class Stage(room: Int, level: Int, enemy: Enemy, hero: Hero, turn: Int) extends RPGEnvironment
+  final case class Ammunition(helmet: Int, sword: Int, bag: Int, shield: Int, boots: Int)
+  final case class Hero(hp: Int, damage: Int, ammunition: Ammunition)
 
-//  trait Equipment
-//  case object HelmetRPG extends  Equipment
-//  case object SwordRPG extends Equipment
-//  case object BagRPG extends Equipment
-//  case object ShieldRPG extends Equipment
-//  case object BootsRPG extends Equipment
+  final case class Stage(room: Int, level: Int, enemy: Enemy, hero: Hero, turn: Int)
 
-  trait ActionRPG
-  case object Damage extends ActionRPG
-  case object Heal extends ActionRPG
-  case object Upgrade extends ActionRPG
-  case object Death extends ActionRPG
+  sealed trait ActionRPG
+  final case object Damage extends ActionRPG
+  final case object Heal extends ActionRPG
+  final case object Upgrade extends ActionRPG
+  final case object Death extends ActionRPG
+  final case object NoAction extends ActionRPG
 }

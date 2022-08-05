@@ -18,7 +18,7 @@ class SlotTests extends AnyFreeSpec with Matchers{
   val customScreen: Screen = Screen(List(Column(Map(1 -> Action, 2 -> Sword, 3 -> Point5)), Column(Map(1 -> Point5, 2 -> Wild, 3 -> Point10)), Column(Map(1 -> Wild, 2 -> FreeSpins, 3 -> Point10)), Column(Map(1 -> Point5, 2 -> Point10, 3 -> Point10)), Column(Map(1 -> Point10, 2 -> Point10, 3 -> Point5))))
   val playerLogin: Login = Login("masana")
   val playerLogin2: Login = Login("masana234")
-  val customStage: Stage = Stage(2, 3, Mob(2, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 1)
+  val customStage: Stage = Stage(2, 3, Enemy(Mob, 2, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 1)
   val emptyRef: IO[Ref[IO, Map[Login, Stage]]] = Ref[IO].of(Map.empty[Login, Stage])
   val notEmptyRef: IO[Ref[IO, Map[Login, Stage]]] = Ref[IO].of(Map(playerLogin -> createNewStage, playerLogin2 -> customStage))
 

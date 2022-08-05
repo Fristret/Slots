@@ -31,8 +31,8 @@ object Doobie extends IOApp.Simple {
     }
   } yield res
 
-  def getBalance(login: Login): IO[String] = {
-    val query = sql"SELECT amount FROM players WHERE login = $login".query[String]
+  def getBalance(login: Login): IO[Int] = {
+    val query = sql"SELECT amount FROM players WHERE login = $login".query[Int]
     val action = query.unique
     action.transact(xa)
   }

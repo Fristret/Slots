@@ -17,10 +17,10 @@ object Cache {
   def cacheOptimizer(cache: Ref[IO, Map[Token, Instant]])(implicit ev: Timer[IO]): IO[Unit] = for {
     map <- cache.get
     modified = check(map)
-    _ <- IO(println(modified))
-    _ <- IO(println("Cache checked"))
+//    _ <- IO(println(modified))
+//    _ <- IO(println("Cache checked"))
     _ <- cache.set(modified)
-    _ <- ev.sleep(1.minute)
+    _ <- ev.sleep(30.seconds)
     _ <- cacheOptimizer(cache)
   } yield ()
 

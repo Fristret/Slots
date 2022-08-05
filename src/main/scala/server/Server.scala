@@ -22,7 +22,7 @@ object Server extends IOApp {
     rpgProgress <- Ref[IO].of(Map.empty[Login, Stage])
     _ <- Doobie.run
     _ <- cacheOptimizer(cache).start
-    topic <- Topic[IO, String]("Welcome. Write your request")
+    topic <- Topic[IO, String]("Connected")
   } yield messageRoute(topic, cache, rpgProgress).orNotFound
 
   override def run(args: List[String]): IO[ExitCode] = for {
