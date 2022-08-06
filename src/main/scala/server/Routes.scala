@@ -4,23 +4,24 @@ import cats.effect._
 import cats.effect.concurrent.Ref
 import fs2.{Pipe, Stream}
 import fs2.concurrent.Topic
-import io.circe.parser.parse
 import org.http4s.HttpRoutes
 import org.http4s.dsl.io._
 import org.http4s.server.websocket.WebSocketBuilder
 import org.http4s.websocket.WebSocketFrame
-import server.Protocol._
+import server.models.Protocol._
 import io.jvm.uuid._
-import server.CommonClasses.Token
-import Game.Slot._
+import server.models.CommonClasses._
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import CheckSyntax._
-import Doobie._
-import Game.RPG.createNewRPG
-import Game.RPGElements.Stage
+import server.utils.CheckSyntax._
+import server.service.Doobie._
+import game.models.RPGElements.Stage
 import cats.implicits.catsSyntaxSemigroup
+import game.RPG2.createNewStage
+import game.SlotTest
+import io.circe.Json
+import io.circe.parser._
 import io.circe.syntax.EncoderOps
 
 import scala.concurrent.ExecutionContext
@@ -29,17 +30,17 @@ object Routes {
 
   implicit private val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
-  import MessageJson._
+  import server.json.MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"value\":\"d\"}, \"player\":{\"login\": {\"value\": \"masana23123\"},\"password\": {\"value\": \"mig943g\"}}}" http://localhost:9001/authorization
+  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"value\":\"d\"}, \"player\":{\"login\": {\"value\": \"masanata23123\"},\"password\": {\"value\": \"mig943g\"}}}" http://localhost:9001/authorization
 
-  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana23123\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
+  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana232\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
 
   // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana23\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
 
-  //websocat ws://127.0.0.1:9001/message/"60900fe2-dae9-4647-ad1d-0252581a651b&masana23"
-  //websocat ws://127.0.0.1:9001/message/"39e5e3ea-a734-4a8e-a6bc-85b65edc83c7&masana23"
+  //websocat ws://127.0.0.1:9001/message/"e26abb41-ec63-4862-87dc-db0194b824fc&masana232"
+  //websocat ws://127.0.0.1:9001/message/"ff63a28f-4d59-49bf-a143-84bd2e58c83f&masana23"
   //вход Bet: {"amount": "200"}
   //вход Balance: {"message": "balance"}
 
@@ -60,47 +61,56 @@ object Routes {
         } yield win.value} |+| (if (count >= times) IO(0) else spinRepeat(f, times, topicClient, count + 1))
 
         def doBet(bet: Bet, login: Login, topicClient: Topic[IO, String]): IO[String] = {
+          val slot = SlotTest(bet, login, rpgProgress)
           for {
             _ <- updateBalance(-bet.amount, login)
             bal <- getBalance(login)
             _ <- topicClient.publish1(BalanceOut(bal).asJson.noSpaces)
-            win <- spin(bet, login, rpgProgress)
+            win <- slot.spin
             _ <- topicClient.publish1(win.asJson.noSpaces)
-            winFree <- if (win.freeSpins) spinRepeat(spin(bet, login, rpgProgress), 10, topicClient)
+            winFree <- if (win.freeSpins) spinRepeat(slot.spin, 10, topicClient)
                 else IO(0)
             _ <- if (win.value + winFree >= 10000) topic.publish1(WinOutput(login.value, win.value, Instant.now()).asJson.toString)
               else IO.unit
             _ <- updateBalance(win.value + winFree, login)
             balanceAfterWin <- getBalance(login)
           } yield BalanceOut(balanceAfterWin).asJson.noSpaces
-        }.handleErrorWith(e => IO(s"${e.getMessage}"))
+        }
 
-        def toClient(topic2: Topic[IO, String]): Stream[IO, WebSocketFrame] = {
+        def toClient(topicClient: Topic[IO, String]): Stream[IO, WebSocketFrame] = {
           val stream1 = topic
             .subscribe(10)
             .map(WebSocketFrame.Text(_))
-          val stream2 = topic2.subscribe(10).map(WebSocketFrame.Text(_))
+          val stream2 = topicClient.subscribe(15).map(WebSocketFrame.Text(_))
           stream2 ++ stream1
         }
 
-        def fromClient(login: Login, topic2: Topic[IO, String]): Pipe[IO, WebSocketFrame, Unit] = topic2
+        def fromClient(login: Login, topicClient: Topic[IO, String]): Pipe[IO, WebSocketFrame, Unit] = topicClient
           .publish
           .compose[Stream[IO, WebSocketFrame]](_.collect {
-            case WebSocketFrame.Text(message, _) => {
-              for {
-                json <- parse(message)
-                message <- json.as[MessageIn]
-                result = message match {
+            case WebSocketFrame.Text(message, _) =>
+              val json = parse(message) match {
+                case Right(value) => value
+                case Left(_) => Json.Null
+              }
+              val messageParsed = json.as[MessageIn] match {
+                case Right(x) => IO(x)
+                case Left(_) => IO.raiseError(new IllegalAccessError("Wrong message"))
+              }
+              messageParsed.flatMap{
                   case bet: Bet => bet.checkSyntax match {
-                    case Right(_) => doBet(bet, login, topic2)
+                    case Right(_) => doBet(bet, login, topicClient)
                     case Left(err) => IO.raiseError(new IllegalStateException(err))
                   }
-                  case _: Balance => getBalance(login).map(_.toString).handleErrorWith(e => IO(s"${e.getMessage}"))
+                  case _: Balance => getBalance(login).map(_.toString)
                   case _ => IO.pure("")
-                }
-              } yield result.handleErrorWith(e => IO(s"${e.getMessage}")).unsafeRunSync()
-            }.getOrElse("Wrong message")
+                }.handleErrorWith(e => IO(ErrorMessage(s"${e.getMessage}").asJson.noSpaces)).unsafeRunSync()
           }
+          )
+
+        def removePlayer(rpgProgress: Ref[IO, Map[Login, Stage]], login: Login): IO[Unit] =
+          rpgProgress.update(map =>
+            map.removed(login)
           )
 
         for {
@@ -108,10 +118,18 @@ object Routes {
           res <- verification.flatMap {
             case None => BadRequest()
             case Some(name) => for {
-              _ <- createNewRPG(name, rpgProgress)
-              str <- cache.modify(map => (map.removed(token), s"Welcome, ${name.value}"))
-              _ <- topicClient.publish1(str)
-              response <- WebSocketBuilder[IO].build(receive = fromClient(name, topicClient), send = toClient(topicClient))
+              _ <- rpgProgress.modify{
+                    map => map.get(name) match {
+                      case None => (map + (name -> createNewStage), map)
+                      case Some(_) => (map, map)
+                    }
+                  }
+              _ <- cache.modify(map => (map.removed(token), ()))
+              response <- WebSocketBuilder[IO].build(
+                receive = fromClient(name, topicClient),
+                send = toClient(topicClient),
+                onClose = removePlayer(rpgProgress, name)
+              )
             } yield response
           }
         } yield res
@@ -131,16 +149,16 @@ object Routes {
             message <- req.as[MessageIn]
             resp <- message match {
               case newPlayer: NewPlayer => newPlayer.player.checkSyntax match {
-                case Right(_) => createPlayer(newPlayer.player) *> Ok("Player has been created")
-                case Left(err) => BadRequest(err)
+                case Right(_) => createPlayer(newPlayer.player) *> Ok()
+                case Left(err) => BadRequest(ErrorMessage(err))
               }
               case player: Player => player.checkSyntax match {
                 case Right(_) => verifyPlayer(player) *> Ok(tokenGenerator(player))
-                case Left(err) => BadRequest(err)
+                case Left(err) => BadRequest(ErrorMessage(err))
               }
             }
             } yield resp
-        }.handleErrorWith(e => BadRequest(s"${e.getMessage}"))
+        }.handleErrorWith(e => BadRequest(ErrorMessage(s"${e.getMessage}")))
     }
   }
 }

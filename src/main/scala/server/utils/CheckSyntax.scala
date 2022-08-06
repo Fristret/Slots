@@ -1,6 +1,6 @@
-package server
+package server.utils
 
-import Protocol._
+import server.models.Protocol._
 
 object CheckSyntax {
 

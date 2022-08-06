@@ -1,7 +1,7 @@
-package Game
+package game.utils
 
-import Game.SlotObjects._
-import SaveMethods._
+import game.models.SlotObjects.{Column, Element}
+import game.utils.SaveMethods._
 
 object CheckScreen {
 
@@ -38,7 +38,7 @@ object CheckScreen {
       case 3 => check4(int - 2, count + 1, list.tailSave)
       case 2 => check4(int + 1, count + 1, list.tailSave)
     })
-    case _ => List(getHead(int, list)) ++ check4(int, count+1, list.tailSave)
+    case _ => List(getHead(int, list)) ++ check4(int, count + 1, list.tailSave)
   }
 
   // 3 -> 2 -> 1 -> 2 -> 3

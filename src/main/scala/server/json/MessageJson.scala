@@ -1,17 +1,18 @@
-package server
+package server.json
 
-import cats.implicits._
+import cats.implicits.toFunctorOps
+import game.models.SlotObjects._
+import game.models.RPGElements._
+import io.circe.generic.extras.semiauto.deriveEnumerationCodec
 import io.circe.syntax.EncoderOps
 import io.circe.{Codec, Decoder, Encoder}
-import server.Protocol._
-import server.CommonClasses._
-import Game.RPGElements._
-import Game.SlotObjects._
-import io.circe.generic.extras.semiauto._
-
+import server.models.CommonClasses._
+import server.models.Protocol._
 
 object MessageJson {
+
   import io.circe.generic.semiauto._
+
   implicit val betDecoder: Decoder[Bet] = deriveDecoder[Bet]
   implicit val betEncoder: Encoder[Bet] = deriveEncoder[Bet]
 
@@ -27,9 +28,6 @@ object MessageJson {
   implicit val tokenDecoder: Decoder[Token] = deriveDecoder[Token]
   implicit val tokenEncoder: Encoder[Token] = deriveEncoder[Token]
 
-//  implicit val actionRPGDecoder: Decoder[ActionRPG] = deriveDecoder
-//  implicit val actionRPGEncoder: Encoder[ActionRPG] = deriveEncoder
-
   implicit val actionRPGCodec: Decoder[ActionRPG] = deriveEnumerationCodec[ActionRPG]
 
   implicit val ammunitionDecoder: Decoder[Ammunition] = deriveDecoder
@@ -37,9 +35,6 @@ object MessageJson {
 
   implicit val heroDecoder: Decoder[Hero] = deriveDecoder
   implicit val heroEncoder: Encoder[Hero] = deriveEncoder
-
-//  implicit val enemyTypeDecoder: Decoder[EnemyType] = deriveDecoder
-//  implicit val enemyTypeEncoder: Encoder[EnemyType] = deriveEncoder
 
   implicit val enemyTypeCodec: Codec[EnemyType] = deriveEnumerationCodec[EnemyType]
 
@@ -51,8 +46,8 @@ object MessageJson {
 
   implicit val elementCodec: Codec[Element] = deriveEnumerationCodec[Element]
 
-//  implicit val elementDecoder: Decoder[Element] = deriveDecoder
-//  implicit val elementEncoder: Encoder[Element] = deriveEncoder
+  implicit val errorMessageDecoder: Decoder[ErrorMessage] = deriveDecoder
+  implicit val errorMessageEncoder: Encoder[ErrorMessage] = deriveEncoder
 
   implicit val configureDecoder: Decoder[Configure] = deriveDecoder
   implicit val configureEncoder: Encoder[Configure] = deriveEncoder
@@ -76,7 +71,7 @@ object MessageJson {
   implicit val winOutputEncoder: Encoder[WinOutput] = deriveEncoder
 
   implicit val messageInDecoder: Decoder[MessageIn] = List[Decoder[MessageIn]](betDecoder.widen, balanceDecoder.widen, playerDecoder.widen, newPlayerDecoder.widen).reduce(_ or _)
-  implicit val messageInEncoder: Encoder[MessageIn] = Encoder.instance{
+  implicit val messageInEncoder: Encoder[MessageIn] = Encoder.instance {
     case bet: Bet => bet.asJson
     case bal: Balance => bal.asJson
     case player: Player => player.asJson

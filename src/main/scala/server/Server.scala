@@ -8,10 +8,10 @@ import org.http4s.implicits._
 
 import scala.concurrent.ExecutionContext
 import Routes._
-import server.CommonClasses.Token
-import Cache._
-import Game.RPGElements.Stage
-import server.Protocol.Login
+import server.models.CommonClasses.Token
+import game.models.RPGElements.Stage
+import server.models.Protocol.Login
+import server.service._
 
 import java.time.Instant
 
@@ -21,8 +21,9 @@ object Server extends IOApp {
     cache <- Ref[IO].of(Map.empty[Token, Instant])
     rpgProgress <- Ref[IO].of(Map.empty[Login, Stage])
     _ <- Doobie.run
-    _ <- cacheOptimizer(cache).start
-    topic <- Topic[IO, String]("Connected")
+    cacheOpt = Cache(cache)
+    _ <- cacheOpt.cacheOptimizer.start
+    topic <- Topic[IO, String]("")
   } yield messageRoute(topic, cache, rpgProgress).orNotFound
 
   override def run(args: List[String]): IO[ExitCode] = for {

@@ -15,23 +15,23 @@ import org.scalatest.OptionValues
 class ServerTest extends AnyFreeSpec with Matchers with OptionValues{
 
   "Server should" - {
-    "accept valid transaction request" in {
+    "Registration fail and success authorization" in {
       val response = httpApp.flatMap(
         _.run(
           makeAuthorizationRequest(
-            body = s"""{"login": {"value": "masana23"}, "password": {"value": "mig943g"}}""",
+            body = s"""{"login": {"value": "masana232"}, "password": {"value": "mig943g"}}""",
           )
         )
       )
       val response1 = httpApp.flatMap(
         _.run(
           makeAuthorizationRequest(
-            body = s"""{"mail": {"value": "masana23@mail.ru"}, "player": {"login": {"value": "masana23"}, "password": {"value": "mig943g"}}}""",
+            body = s"""{"mail": {"value": "masana23@mail.ru"}, "player": {"login": {"value": "masana2322"}, "password": {"value": "mig943g"}}}""",
           )
         )
       )
-      verifyResponseStatus(response, Status.Ok)
       verifyResponseStatus(response1, Status.Ok)
+      verifyResponseStatus(response, Status.Ok)
     }
 
     "reject invalid transaction requests via HTTP POST" in {
@@ -49,19 +49,19 @@ class ServerTest extends AnyFreeSpec with Matchers with OptionValues{
       val response = httpApp.flatMap(
         _.run(
           makeAuthorizationRequest(
-            body = s"""{"login": {"value": "abobik23"}, "password": {"value": "1241244"}}""",
+            body = s"""{"login": {"value": "test2"}, "password": {"value": "1241244"}}""",
           )
         )
       )
       val response1 = httpApp.flatMap(
         _.run(
           makeAuthorizationRequest(
-            body = s"""{"mail": {"value": "masana23@mail.ru"}, "player": {"login": {"value": "abobik23"}, "password": {"value": "1241244"}}}""",
+            body = s"""{"mail": {"value": "masana23@mail.ru"}, "player": {"login": {"value": "test2"}, "password": {"value": "1241244"}}}""",
           )
         )
       )
       verifyResponseStatus(response1, Status.Ok)
-      verifyResponseStatus(response, Status.BadRequest)
+      verifyResponseStatus(response, Status.Ok)
     }
   }
 
