@@ -1,6 +1,6 @@
 package server.models
 
-import game.models.SlotObjects.Configure
+import game.models.SlotObjects.{Configure, Screen}
 import game.models.RPGElements.Stage
 
 import java.time.Instant
@@ -25,7 +25,7 @@ object Protocol {
 
   sealed trait MessageOut
 
-  final case class Win(value: Int, list: Configure, stage: Stage, freeSpins: Boolean) extends MessageOut
+  final case class Win(value: Int, list: Configure, stage: Stage, screen: Screen, freeSpins: Boolean) extends MessageOut
 
   final case class WinOutput(login: String, amountWin: Int, time: Instant) extends MessageOut
 

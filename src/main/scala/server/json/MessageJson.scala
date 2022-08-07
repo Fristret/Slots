@@ -52,6 +52,12 @@ object MessageJson {
   implicit val configureDecoder: Decoder[Configure] = deriveDecoder
   implicit val configureEncoder: Encoder[Configure] = deriveEncoder
 
+  implicit val columnDecoder: Decoder[Column] = deriveDecoder
+  implicit val columnEncoder: Encoder[Column] = deriveEncoder
+
+  implicit val screenDecoder: Decoder[Screen] = deriveDecoder
+  implicit val screenEncoder: Encoder[Screen] = deriveEncoder
+
   implicit val winDecoder: Decoder[Win] = deriveDecoder
   implicit val winEncoder: Encoder[Win] = deriveEncoder
 

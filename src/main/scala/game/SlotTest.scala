@@ -122,7 +122,7 @@ object SlotTest {
           case Some(value) => value
         }
       }
-      yield Win(payment.foldLeft(0)(_ + _._2) + winRPG, Configure(listWithWin), stageRPG, listRPGAction.contains(FreeSpins))
+      yield Win(payment.foldLeft(0)(_ + _._2) + winRPG, Configure(listWithWin), stageRPG, screen, listRPGAction.contains(FreeSpins))
     }
 
     def spin: F[Win] = for {

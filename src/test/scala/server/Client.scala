@@ -1,6 +1,6 @@
 package server
 
-import cats.Monad
+import cats.{Applicative, Monad}
 import cats.effect.{ExitCode, IO, IOApp, Resource, Timer}
 import cats.implicits._
 import io.circe.Json
@@ -20,9 +20,11 @@ object Client extends IOApp {
   import server.json.MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  private def sendMessage[F[_]: Monad](connectionHighLevel: WSConnectionHighLevel[F], string: String)(implicit ev: Timer[F]) = for {
+  private def sendMessage[F[_]: Monad : Applicative](connectionHighLevel: WSConnectionHighLevel[F], string: String, times: Int, count: Int = 1)(implicit ev: Timer[F]): F[Unit] = for {
     _ <- connectionHighLevel.send(WSFrame.Text(string))
     _ <- ev.sleep(1000.milliseconds)
+    _ <- if (count >= times) println("Success").pure[F]
+      else sendMessage(connectionHighLevel, string, times, count + 1)
   } yield ()
 
   private val uri = uri"http://localhost:9001/authorization"
@@ -40,8 +42,8 @@ object Client extends IOApp {
       for {
         _ <- printLine("Im Born")
         registration = Request[IO](method = POST, uri).withEntity(jsonReg)
-        string <- client.fetchAs[ErrorMessage](registration)
-        _ <- IO(println(string))
+        error <- client.fetchAs[ErrorMessage](registration)
+        _ <- IO(println(error))
         logIn = Request[IO](method = POST, uri).withEntity(jsonAut)
         token <- client.fetchAs[Token](logIn)
       } yield token
@@ -51,11 +53,8 @@ object Client extends IOApp {
         _ <- conn.receiveStream.collect {
           case WSFrame.Text(s, _) => println(s)
         }.compile.drain.start
-        _ <- sendMessage(conn, """{"amount": "200"}""")
-        _ <- sendMessage(conn, """{"amount": "200"}""")
-        _ <- sendMessage(conn, """{"amount": "200"}""")
-        _ <- sendMessage(conn, """{"amount": "200"}""")
-        _ <- sendMessage(conn, """{"message": "balance"}""")
+        _ <- sendMessage(conn, """{"amount": "200"}""", 20)
+        _ <- sendMessage(conn, """{"message": "balance"}""", 1)
         _ <- conn.sendClose("No reason")
       } yield ()
     }.handleErrorWith(e => IO(s"${e.getMessage}"))

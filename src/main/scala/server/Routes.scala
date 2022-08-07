@@ -25,6 +25,7 @@ import io.circe.parser._
 import io.circe.syntax.EncoderOps
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
 object Routes {
 
@@ -39,12 +40,12 @@ object Routes {
 
   // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana23\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
 
-  //websocat ws://127.0.0.1:9001/message/"e26abb41-ec63-4862-87dc-db0194b824fc&masana232"
+  //websocat ws://127.0.0.1:9001/message/"fc9a9be3-8830-4cc3-b909-c2eeef7d8b42&masana232"
   //websocat ws://127.0.0.1:9001/message/"ff63a28f-4d59-49bf-a143-84bd2e58c83f&masana23"
   //вход Bet: {"amount": "200"}
   //вход Balance: {"message": "balance"}
 
-  def messageRoute(topic: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]], rpgProgress: Ref[IO, Map[Login, Stage]]): HttpRoutes[IO] = {
+  def messageRoute(topicGlobal: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]], rpgProgress: Ref[IO, Map[Login, Stage]]): HttpRoutes[IO] = {
 
     HttpRoutes.of[IO] {
       case GET -> Root / "message" / id =>
@@ -70,7 +71,7 @@ object Routes {
             _ <- topicClient.publish1(win.asJson.noSpaces)
             winFree <- if (win.freeSpins) spinRepeat(slot.spin, 10, topicClient)
                 else IO(0)
-            _ <- if (win.value + winFree >= 10000) topic.publish1(WinOutput(login.value, win.value, Instant.now()).asJson.toString)
+            _ <- if (win.value + winFree >= bet.amount * 5) topicGlobal.publish1(WinOutput(login.value, win.value, Instant.now()).asJson.toString)
               else IO.unit
             _ <- updateBalance(win.value + winFree, login)
             balanceAfterWin <- getBalance(login)
@@ -78,8 +79,8 @@ object Routes {
         }
 
         def toClient(topicClient: Topic[IO, String]): Stream[IO, WebSocketFrame] = {
-          val stream1 = topic
-            .subscribe(10)
+          val stream1 = topicGlobal
+            .subscribe(1)
             .map(WebSocketFrame.Text(_))
           val stream2 = topicClient.subscribe(15).map(WebSocketFrame.Text(_))
           stream2 ++ stream1
@@ -108,13 +109,8 @@ object Routes {
           }
           )
 
-        def removePlayer(rpgProgress: Ref[IO, Map[Login, Stage]], login: Login): IO[Unit] =
-          rpgProgress.update(map =>
-            map.removed(login)
-          )
-
         for {
-          topicClient <- Topic[IO, String]("")
+          topicClient <- Topic[IO, String]("Client")
           res <- verification.flatMap {
             case None => BadRequest()
             case Some(name) => for {
@@ -127,8 +123,7 @@ object Routes {
               _ <- cache.modify(map => (map.removed(token), ()))
               response <- WebSocketBuilder[IO].build(
                 receive = fromClient(name, topicClient),
-                send = toClient(topicClient),
-                onClose = removePlayer(rpgProgress, name)
+                send = toClient(topicClient)
               )
             } yield response
           }
