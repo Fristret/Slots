@@ -125,12 +125,13 @@ object SlotTest {
       yield Win(payment.foldLeft(0)(_ + _._2) + winRPG, Configure(listWithWin), stageRPG, screen, listRPGAction.contains(FreeSpins))
     }
 
-    def spin: F[Win] = for {
-      _ <- "SR".pure[F]
-      generator = RNG.apply[F]
+    def spin: F[Win] = {
+      val generator = RNG.apply[F]
+      for {
       screen <- generator.generateScreen
       win <- checkWin(screen)
     } yield win
+    }
 
   }
 

@@ -40,7 +40,6 @@ class CacheTest extends AnyFreeSpec with Matchers{
         cacheTest = Cache(cache)
         map <- cache.get
         newMap = cacheTest.check(map)
-        _ <- IO(println(newMap))
       } yield newMap
       effect.unsafeRunSync() should be (Map(token1 -> time1))
     }

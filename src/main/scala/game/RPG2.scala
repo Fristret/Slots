@@ -37,18 +37,17 @@ object RPG2 {
 
   def apply[F[_] : Applicative : Monad](listElement: List[Element], login: Login, bet: Bet, rpgProgress: Ref[F, Map[Login, Stage]]): RPG2[F] = new RPG2[F] {
 
-    def createNewRPG: F[Map[Login, Stage]] = rpgProgress.modify{
+    def createNewRPG: F[Map[Login, Stage]] = rpgProgress.updateAndGet{
       map => map.get(login) match {
-        case None => (map + (login -> createNewStage), map)
-        case Some(_) => (map, map)
+        case None => map + (login -> createNewStage)
+        case Some(_) => map
       }
     }
 
-    def randomRPG: F[Int] = for{
-      _ <- "23".pure[F]
-      rng = RNG.apply[F]
-      int <- rng.generatorRPG
-    } yield int
+    def randomRPG: F[Int] = {
+      val rng = RNG.apply[F]
+      rng.generatorRPG
+    }
 
     def enemyAttack(enemy: Enemy, hero: Hero): F[Hero] = {
       if (hero.ammunition.shield != 0) hero.copy(ammunition = hero.ammunition.copy(shield = hero.ammunition.shield - 1)).pure[F]

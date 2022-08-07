@@ -30,7 +30,7 @@ class ServerTest extends AnyFreeSpec with Matchers with OptionValues{
           )
         )
       )
-      verifyResponseStatus(response1, Status.Ok)
+      verifyResponseStatus(response1, Status.BadRequest)
       verifyResponseStatus(response, Status.Ok)
     }
 
@@ -49,14 +49,14 @@ class ServerTest extends AnyFreeSpec with Matchers with OptionValues{
       val response = httpApp.flatMap(
         _.run(
           makeAuthorizationRequest(
-            body = s"""{"login": {"value": "test2"}, "password": {"value": "1241244"}}""",
+            body = s"""{"login": {"value": "test3"}, "password": {"value": "1241244"}}""",
           )
         )
       )
       val response1 = httpApp.flatMap(
         _.run(
           makeAuthorizationRequest(
-            body = s"""{"mail": {"value": "masana23@mail.ru"}, "player": {"login": {"value": "test2"}, "password": {"value": "1241244"}}}""",
+            body = s"""{"mail": {"value": "masana23@mail.ru"}, "player": {"login": {"value": "test3"}, "password": {"value": "1241244"}}}""",
           )
         )
       )
