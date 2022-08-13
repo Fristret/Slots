@@ -28,16 +28,16 @@ object RNG {
     def getElement: F[Element] = for {
       int <- generator
       res = int match {
-        case i if i % 10 == 1 && i < 10 => Jackpot //1%
-        case i if i % 10 == 1 && i > 40 => Action // 6%
-        case i if i % 10 == 7 && i > 40 => FreeSpins //6%
+        case i if i % 10 == 1 && i < 30 => Jackpot //3%
+        case i if i % 10 == 1 && i > 50 => Action // 5%
+        case i if i % 10 == 2 && i > 50 => FreeSpins //5%
         case i if i % 10 == 3 && i < 100 => Chest //10%
         case i if i % 10 == 6 && i < 100 => Bag //10%
-        case i if i % 10 == 4 && i < 100 => Sword //10%
-        case i if i % 10 == 7 && i < 40 => MiniGame //4%
-        case i if i % 10 == 8 || i % 10 == 7 => Point10 // 20%
+        case i if i % 10 == 4 || i % 10 == 5 && i < 50 => Sword //15%
+        case i if i % 10 == 7 && i < 100 => MiniGame //10%
+        case i if i % 10 == 8 || i % 10 == 9 && i > 80 => Point10 // 17%
         case i if i % 10 == 9 && i < 50 => Wild //5%
-        case _ => Point5 //28 %
+        case _ => Point5 //20 %
       }
     } yield res
 

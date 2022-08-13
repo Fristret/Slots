@@ -34,7 +34,7 @@ object SlotMiniGame {
     def play: F[List[Element]] = for {
       enemy <- generateUnitEnemy
       res = hero match {
-        case Leaf => enemy match {
+        case Leaf | ZaWarudo => enemy match {
           case Water => List(Action)
           case _ => List(NoElement)
         }

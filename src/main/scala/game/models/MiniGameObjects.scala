@@ -7,5 +7,4 @@ object MiniGameObjects {
   final case object Leaf extends MiniGameUnit
   final case object Fire extends MiniGameUnit
   final case object ZaWarudo extends MiniGameUnit
-  final case object Weak extends MiniGameUnit
 }

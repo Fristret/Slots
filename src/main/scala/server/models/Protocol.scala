@@ -38,7 +38,7 @@ object Protocol {
 
   final case class Win(payment: Int) extends MessageOut
 
-  final case class SlotExit(value: Int, freeSpins: Boolean) extends MessageOut
+  final case class SlotExit(value: Int, line: List[Element], freeSpins: Boolean) extends MessageOut
 
   final case class WinOutput(login: String, amountWin: Int, time: Instant) extends MessageOut
 

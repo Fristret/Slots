@@ -47,7 +47,7 @@ object Slot {
     }
 
     def getWiningMap(map: Map[Int, Map[List[Element], Int]]): Map[List[Element], Int] = {
-       map.values.toList.foldLeft(Map.empty[List[Element], Int])((a, b) => a |+| b)
+       map.values.toList.filter(map => map.nonEmpty).foldLeft(Map.empty[List[Element], Int])((a, b) => a |+| b)
     }
 
     def paymentCheck(list: List[Element]): Map[List[Element], Int] = {
@@ -117,14 +117,12 @@ object Slot {
     else map.filter(_._2 == list.headOption.getOrElse(List(Map.empty[List[Element], Int])))
 
     def filterWiningMap(map: Map[Int, Map[List[Element], Int]]): Map[Int, Map[List[Element], Int]] = {
-      val revMap = map.flatMap(a => a._2.map{case (a,b) => if (b == 0) Map.empty[List[Element], Int] else Map(a -> b)}).toList
-      val listInt = revMap.filterNot(a => a.isEmpty)
-      rec(map, listInt)
+      map.filter(a => a._2.nonEmpty)
     }
 
     def checkWin(screen: Screen): F[SlotExit] = {
       val winingMapFormed = formWiningMap(screen)
-      val winingLine = WiningLine(filterWiningMap(winingMapFormed).keys.toList)
+      val winingLine = WiningLine(filterWiningMap(winingMapFormed).keys.toList.sorted)
       val winingMap = getWiningMap(winingMapFormed)
       val payment = winingMap.foldLeft(0)(_ + _._2)
       val listWithWin = winingMap.keys.toList
@@ -145,7 +143,7 @@ object Slot {
         }
         _ <- topicClient.publish1(Win(winRPG).asJson.noSpaces)
       }
-      yield SlotExit(payment + winRPG, listRPGAction.contains(FreeSpins))
+      yield SlotExit(payment + winRPG, listRPGAction, listRPGAction.contains(FreeSpins))
     }
 
     def spin: F[SlotExit] = {
