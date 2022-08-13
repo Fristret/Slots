@@ -1,18 +1,23 @@
 package game
 
-import cats.{Applicative, Monad}
+import cats.effect.Sync
+import cats.Monad
 import cats.implicits._
 import cats.effect.concurrent.Ref
+import fs2.concurrent.Topic
+import game.models.MiniGameObjects.MiniGameUnit
 import game.models.RPGElements._
 import game.models.SlotObjects._
 import game.utils.SaveMethods.SaveTailOps
-import server.models.Protocol.{Bet, Login}
+import server.models.Protocol.{ActionOutput, Bet, Login, RPGUpdateStage}
 import game.utils.RNG
+import io.circe.syntax.EncoderOps
+import server.json.MessageJson._
 
 import scala.annotation.tailrec
 import scala.math.pow
 
-trait RPG2[F[_]]{
+trait PRG[F[_]]{
   def createNewRPG: F[Map[Login, Stage]]
   def randomRPG: F[Int]
   def enemyAttack(enemy: Enemy, hero: Hero): F[Hero]
@@ -31,11 +36,11 @@ trait RPG2[F[_]]{
 }
 
 
-object RPG2 {
+object PRG {
 
   def createNewStage: Stage = Stage(1, 1, Enemy(Mob, 3, 1, 1), Hero(5, 1, Ammunition(0, 0, 0, 0, 0)), 0)
 
-  def apply[F[_] : Applicative : Monad](listElement: List[Element], login: Login, bet: Bet, rpgProgress: Ref[F, Map[Login, Stage]]): RPG2[F] = new RPG2[F] {
+  def apply[F[_] : Monad : Sync](listElement: List[Element], login: Login, bet: Bet, topicClient: Topic[F, String], rpgProgress: Ref[F, Map[Login, Stage]], miniGameUnit: MiniGameUnit): PRG[F] = new PRG[F] {
 
     def createNewRPG: F[Map[Login, Stage]] = rpgProgress.updateAndGet{
       map => map.get(login) match {
@@ -144,24 +149,37 @@ object RPG2 {
       case _ => Death
     }
 
+    def doAction(stage: Stage): F[Stage] = for {
+      action <- actionGenerator
+      newStage <- action match {
+          case Damage => heroAttack (stage.enemy, stage.hero.copy (damage = stage.hero.damage + 10)).map (enemy => stage.copy (enemy = enemy))
+          case Heal => stage.copy (hero = stage.hero.copy (5)).pure[F]
+          case Upgrade => stage.copy (hero = stage.hero.copy (stage.hero.hp + 1, stage.hero.damage + 1, giveBagEquipment (5, stage.hero.ammunition))).pure[F]
+          case Death => createNewStage.pure[F]
+          case _ => stage.pure[F]
+        }
+      _ <- topicClient.publish1(ActionOutput(action, newStage).asJson.noSpaces)
+    }yield newStage
+
     def updateStage(element: Element, stage: Stage): F[Stage] =
         element match {
           case Sword => heroAttack(stage.enemy, stage.hero).map(newEnemy => stage.copy(enemy = newEnemy))
           case Bag => stage.copy(hero = stage.hero.copy(ammunition = giveBagEquipment(1, stage.hero.ammunition))).pure[F]
           case Chest => giveChestEquipment(stage.hero.ammunition).map(ammunition => stage.copy(hero = stage.hero.copy(ammunition = ammunition)))
-          case Action => actionGenerator.flatMap {
-            case Damage => heroAttack(stage.enemy, stage.hero.copy(damage = stage.hero.damage + 10)).map(enemy => stage.copy(enemy = enemy))
-            case Heal => stage.copy(hero = stage.hero.copy(5)).pure[F]
-            case Upgrade => stage.copy(hero = stage.hero.copy(stage.hero.hp + 1, stage.hero.damage + 1, giveBagEquipment(5, stage.hero.ammunition))).pure[F]
-            case Death => createNewStage.pure[F]
-            case _ => stage.pure[F]
-          }
+          case Action => doAction(stage: Stage)
           case NoElement => stage.pure[F]
           case Jackpot => Stage(11, stage.level, Enemy(Boss, 0, 0, 0), stage.hero, stage.turn).pure[F]
+          case MiniGame =>
+            val minigame = SlotMiniGame(topicClient, miniGameUnit)
+            val list = minigame.play
+            for {
+            list <- list
+            newStage <- recursion(list, stage)
+          } yield newStage
           case _ => stage.pure[F]
         }
 
-    def rec(list: List[Element], stage: Stage): F[Stage] = if (list.isEmpty) stage.pure[F]
+    def recursion(list: List[Element], stage: Stage): F[Stage] = if (list.isEmpty) stage.pure[F]
     else {
       val element = list.headOption match {
         case Some(x) => x
@@ -169,14 +187,16 @@ object RPG2 {
       }
       for {
         newStage <- updateStage(element, stage)
-        res <- rec(list.tailSave, newStage)
+        _ <- if (newStage != stage) topicClient.publish1(RPGUpdateStage(element, newStage).asJson.noSpaces)
+          else ().pure[F]
+        res <- recursion(list.tailSave, newStage)
       } yield res
     }
 
 
     def playRPG: F[Map[Stage, Int]] = for {
       stage <- getStage
-      updatedStage <- rec(listElement, stage)
+      updatedStage <- recursion(listElement, stage)
       map <- fight(listElement.isEmpty, updatedStage)
       newStage = map.keys.toList.headOption match {
         case None => stage

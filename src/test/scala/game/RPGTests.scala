@@ -1,28 +1,37 @@
-package GameTests
+package game
 
-import game.RPG2.createNewStage
+import game.PRG.createNewStage
 import game.models.RPGElements._
 import game.models.SlotObjects._
-import cats.effect.IO
+import cats.effect._
 import cats.effect.concurrent.Ref
-import game.RPG2
-import org.scalatest.freespec.AnyFreeSpec
+import cats.effect.testing.scalatest.AsyncIOSpec
+import fs2.concurrent.Topic
+import game.models.MiniGameObjects.Leaf
+import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import server.models.Protocol._
 
 import scala.math.pow
 
-class RPGTests extends AnyFreeSpec with Matchers{
+class RPGTests extends AsyncFreeSpec with Matchers with AsyncIOSpec{
 
   val playerLogin: Login = Login("masana")
   val playerLogin2: Login = Login("masana234")
   val playerLogin3: Login = Login("masana234")
+  val topicClient: IO[Topic[IO, String]] = Topic[IO, String]("")
   val customStage: Stage = Stage(2, 3, Enemy(Mob, 2, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 1)
   val emptyRef: IO[Ref[IO, Map[Login, Stage]]] = Ref[IO].of(Map.empty[Login, Stage])
   val notEmptyRef: IO[Ref[IO, Map[Login, Stage]]] = Ref[IO].of(Map(playerLogin -> createNewStage, playerLogin2 -> customStage))
 
-  val pgGame: IO[RPG2[IO]] = notEmptyRef.map(ref => RPG2(List(Action, Sword, Point5, Point5), playerLogin, Bet(200), ref))
-  val pgGameCreate: IO[RPG2[IO]] = emptyRef.map(ref => RPG2(List(Action, Sword, Point5, Point5), playerLogin, Bet(200), ref))
+  val pgGame: IO[PRG[IO]] = for {
+    ref <- notEmptyRef
+    topic <- topicClient
+  } yield PRG(List(Action, Sword, Point5, Point5), playerLogin, Bet(200), topic, ref, Leaf)
+  val pgGameCreate: IO[PRG[IO]] = for {
+    ref <- emptyRef
+  topic <- topicClient
+} yield PRG(List(Action, Sword, Point5, Point5), playerLogin, Bet(200), topic, ref, Leaf)
 
   "creating new RPG Game"  - {
     "create" in {
@@ -31,7 +40,7 @@ class RPGTests extends AnyFreeSpec with Matchers{
         rpg <- pgGameCreate
         value <- rpg.createNewRPG
       } yield value
-      action.unsafeRunSync() should be (map)
+      action.asserting(_ shouldBe map)
     }
 
     "return exists" in {
@@ -39,7 +48,7 @@ class RPGTests extends AnyFreeSpec with Matchers{
         pgGame <- pgGame
         value <- pgGame.createNewRPG
       } yield value.get(playerLogin2)
-      action.unsafeRunSync() should be (Some(customStage))
+      action.asserting(_ shouldBe Some(customStage))
     }
   }
 
@@ -54,9 +63,9 @@ class RPGTests extends AnyFreeSpec with Matchers{
         heroEv <- pgGame.enemyAttack(stageEv.enemy, stageEv.hero)
         heroBl <- pgGame.enemyAttack(stageBl.enemy, stageBl.hero)
       } yield (heroDmg, heroEv, heroBl)
-      action.unsafeRunSync()._1 should be(Hero(1, 1, Ammunition(0, 2, 0, 0, -1)))
-      action.unsafeRunSync()._2 should be (Hero(2, 1, Ammunition(0, 2, 0, 0, 10)))
-      action.unsafeRunSync()._3 should be(Hero(2, 1, Ammunition(0, 2, 0, 0, 0)))
+      action.asserting(_._1 shouldBe Hero(1, 1, Ammunition(0, 2, 0, 0, -1)))
+      action.asserting(_._2 shouldBe Hero(2, 1, Ammunition(0, 2, 0, 0, 10)))
+      action.asserting(_._3 shouldBe Hero(2, 1, Ammunition(0, 2, 0, 0, 0)))
     }
   }
 
@@ -69,8 +78,8 @@ class RPGTests extends AnyFreeSpec with Matchers{
         enemyDmg <- pgGame.heroAttack(stageDmg.enemy, stageDmg.hero)
         enemyEv <- pgGame.heroAttack(stageEv.enemy, stageEv.hero)
       } yield (enemyDmg, enemyEv)
-      action.unsafeRunSync()._1 should be (Enemy(Mob, -1, 1, 0))
-      action.unsafeRunSync()._2 should be (Enemy(Mob, 2, 1, 10))
+      action.asserting(_._1 shouldBe Enemy(Mob, -1, 1, 0))
+      action.asserting(_._2 shouldBe Enemy(Mob, 2, 1, 10))
     }
   }
 
@@ -81,7 +90,7 @@ class RPGTests extends AnyFreeSpec with Matchers{
         pgGame <- pgGame
         map <- pgGame.fight(NotDoDmgOrDo = true, stage)
       } yield map
-        action.unsafeRunSync() should be (Map(Stage(2, 3, Enemy(Mob, 2, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 2) -> 0))
+        action.asserting(_ shouldBe Map(Stage(2, 3, Enemy(Mob, 2, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 2) -> 0))
 
 
     }
@@ -97,18 +106,19 @@ class RPGTests extends AnyFreeSpec with Matchers{
         map2 <- pgGame.fight(NotDoDmgOrDo = false, stage2)
         map3 <- pgGame.fight(NotDoDmgOrDo = false, stage3)
       } yield (map1, map11, map2, map3)
-      action.unsafeRunSync()._1 should be (Map(Stage(2, 1, Enemy(Mob, 3, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> (0.2 * stage1.level * 200).toInt))
-      action.unsafeRunSync()._2 should be (Map(Stage(6, 1, Enemy(MiniBoss, 5, 1, 2), Hero(2, 1, Ammunition(0, 10, 2, 0, 0)), 0) -> (0.2 * 200 * stage11.level * (1 + 0.1 * stage11.hero.ammunition.bag + 1)).toInt))
-      action.unsafeRunSync()._3 should be (Map(Stage(7, 3,Enemy(Mob, 5, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 0.5 * 200 * pow(2, stage2.level)))
-      action.unsafeRunSync()._4 should be (Map(Stage(1, 4, Enemy(Mob, 6, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 200 * pow(5, stage3.level)))
+      action.asserting(_._1 shouldBe Map(Stage(2, 1, Enemy(Mob, 3, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> (0.2 * stage1.level * 200).toInt))
+      action.asserting(_._2 shouldBe Map(Stage(6, 1, Enemy(MiniBoss, 5, 1, 2), Hero(2, 1, Ammunition(0, 10, 2, 0, 0)), 0) -> (0.2 * 200 * stage11.level * (1 + 0.1 * stage11.hero.ammunition.bag + 1)).toInt))
+      action.asserting(_._3 shouldBe Map(Stage(7, 3,Enemy(Mob, 5, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 0.5 * 200 * pow(2, stage2.level)))
+      action.asserting(_._4 shouldBe Map(Stage(1, 4, Enemy(Mob, 6, 1, 1), Hero(2, 1, Ammunition(0, 0, 0, 0, 0)), 0) -> 200 * pow(5, stage3.level)))
     }
+
     "Hero Death" in {
       val stage: Stage = Stage(1, 1, Enemy(Mob, 2, 1, 0), Hero(1, 0, Ammunition(0, 0, 0, 0, -1)), 7)
       val action = for {
         pgGame <- pgGame
         map <- pgGame.fight(NotDoDmgOrDo = true, stage)
       } yield map
-       action.unsafeRunSync() should be (Map(createNewStage -> 0))
+       action.asserting(_ shouldBe Map(createNewStage -> 0))
     }
   }
 
@@ -119,7 +129,7 @@ class RPGTests extends AnyFreeSpec with Matchers{
         pgGame <- pgGame
         ammunitionNew = pgGame.giveBagEquipment(5, ammunition)
       } yield ammunitionNew
-      action.unsafeRunSync() should be (Ammunition(1, 1, 1, 1, 1))
+      action.asserting(_ shouldBe Ammunition(1, 1, 1, 1, 1))
     }
   }
 
@@ -130,7 +140,7 @@ class RPGTests extends AnyFreeSpec with Matchers{
         pgGame <- pgGame
         stage <- pgGame.updateStage(element, customStage)
       } yield stage
-      action.unsafeRunSync() should be (Stage(2, 3, Enemy(Mob, -1, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 1))
+      action.asserting(_ shouldBe Stage(2, 3, Enemy(Mob, -1, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 1))
     }
   }
 }

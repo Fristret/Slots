@@ -15,9 +15,17 @@ object Doobie extends IOApp.Simple {
   )
 
   def createPlayer(player: Player): IO[Unit] = {
-    val createPlayer = sql"INSERT INTO players (login, password, amount) VALUES (${player.login.value}, ${player.password.value}, 100000)"
+    val createPlayer = sql"INSERT INTO players (login, password, amount) VALUES (${player.login}, ${player.password}, 100000)"
     createPlayer.update.run.transact(xa).attempt.flatMap {
       case Left(_) => IO.raiseError(new IllegalAccessError("Player exists"))
+      case Right(_) => IO.unit
+    }
+  }
+
+  def deletePlayer(login: Login): IO[Unit] = {
+    val deletePlayer = sql"DELETE FROM players WHERE login = $login"
+    deletePlayer.update.run.transact(xa).attempt.flatMap{
+      case Left(_) => IO.raiseError(new IllegalAccessError("Player not exists"))
       case Right(_) => IO.unit
     }
   }
@@ -25,20 +33,20 @@ object Doobie extends IOApp.Simple {
   def verifyPlayer(player: Player): IO[Unit] = for {
     either <- sql"SELECT password FROM players WHERE login = ${player.login.value}".query[Password].unique.transact(xa).attempt
     res <- either match {
-      case Left(err) => IO.raiseError(err)
+      case Left(_) => IO.raiseError(new IllegalAccessError("Player not exists"))
       case Right(password) => if (password == player.password) IO.unit
       else IO.raiseError(new IllegalAccessError("Wrong password"))
     }
   } yield res
 
   def getBalance(login: Login): IO[Int] = {
-    val query = sql"SELECT amount FROM players WHERE login = ${login.value}".query[Int]
+    val query = sql"SELECT amount FROM players WHERE login = $login".query[Int]
     val action = query.unique
     action.transact(xa)
   }
 
   def updateBalance(value: Int, login: Login): IO[Int] = {
-    val query = sql"UPDATE players SET amount = amount + $value WHERE login = ${login.value}"
+    val query = sql"UPDATE players SET amount = amount + $value WHERE login = $login"
     query.update.run.transact(xa)
   }
 
@@ -57,8 +65,5 @@ object Doobie extends IOApp.Simple {
   }
 
   //создание БД
-  val run: IO[Unit] = for {
-    pr <- IO(println("Hello, World"))
-    _ <- createBD
-  } yield pr
+  val run: IO[Unit] = createBD.map(_ => ())
 }

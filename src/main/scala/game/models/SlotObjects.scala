@@ -6,12 +6,9 @@ object SlotObjects {
 
   final case class Column(elements: Map[Int, Element]) extends SlotEnvironment
 
-  final case class Screen(value: List[Column]) extends SlotEnvironment
+  final case class Screen(column: List[Column]) extends SlotEnvironment
 
   final case class Configure(value: List[List[Element]]) extends SlotEnvironment
-
-  final case class Payment(win: Int, configure: Configure) extends SlotEnvironment
-
 
 
   sealed trait Element

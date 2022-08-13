@@ -2,7 +2,8 @@ package server
 
 import cats.effect._
 import cats.effect.concurrent.Ref
-import org.scalatest.freespec.AnyFreeSpec
+import cats.effect.testing.scalatest.AsyncIOSpec
+import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import server.models.CommonClasses.Token
 import server.service.Cache
@@ -10,9 +11,8 @@ import server.service.Cache
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.DurationInt
 
-class CacheTest extends AnyFreeSpec with Matchers{
+class CacheTest extends AsyncFreeSpec with AsyncIOSpec with Matchers{
 
   implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
@@ -26,7 +26,7 @@ class CacheTest extends AnyFreeSpec with Matchers{
         cacheTest = Cache(cache)
         map <- cache.get
       } yield cacheTest.check(map)
-      effect.unsafeRunSync() should be (Map.empty[Token, Instant])
+      effect.asserting(_ shouldBe Map.empty[Token, Instant])
     }
 
     "clean cache" in {
@@ -41,7 +41,7 @@ class CacheTest extends AnyFreeSpec with Matchers{
         map <- cache.get
         newMap = cacheTest.check(map)
       } yield newMap
-      effect.unsafeRunSync() should be (Map(token1 -> time1))
+      effect.asserting(_ shouldBe Map(token1 -> time1))
     }
 
     "clean all cache" in {
@@ -54,7 +54,7 @@ class CacheTest extends AnyFreeSpec with Matchers{
         cacheTest = Cache(cache)
         map <- cache.get
       } yield cacheTest.check(map)
-      effect.unsafeRunSync() should be (Map.empty[Token, Instant])
+      effect.asserting(_ shouldBe Map.empty[Token, Instant])
     }
   }
 

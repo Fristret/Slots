@@ -1,6 +1,7 @@
 package game.utils
 
-import cats.{Applicative, Monad}
+import cats.effect.Sync
+import cats.Monad
 import cats.implicits._
 import game.models.SlotObjects._
 
@@ -9,6 +10,7 @@ import scala.util.Random
 trait RNG[F[_]] {
   def generator: F[Int]
   def generatorRPG: F[Int]
+  def generatorMiniGame: F[Int]
   def getElement: F[Element]
   def generateColumn: F[Column]
   def generateScreen: F[Screen]
@@ -16,10 +18,12 @@ trait RNG[F[_]] {
 
 object RNG {
 
-  def apply[F[_] : Applicative : Monad]: RNG[F] = new RNG[F] {
-    def generator: F[Int] = Random.between(1, 101).pure[F]
+  def apply[F[_] : Monad : Sync]: RNG[F] = new RNG[F] {
+    def generator: F[Int] = Sync[F].delay(Random.between(1, 101))
 
-    def generatorRPG: F[Int] = Random.between(1, 11).pure[F]
+    def generatorRPG: F[Int] = Sync[F].delay(Random.between(1, 11))
+
+    def generatorMiniGame: F[Int] = Sync[F].delay(Random.between(1, 5))
 
     def getElement: F[Element] = for {
       int <- generator

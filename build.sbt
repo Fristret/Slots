@@ -33,4 +33,8 @@ libraryDependencies ++= Seq(
   "org.tpolecat" %% "doobie-core" % doobieVersion,
   "org.tpolecat" %% "doobie-postgres-circe" % doobieVersion,
   "org.tpolecat" %% "doobie-hikari" % doobieVersion,
+  "com.codecommit" %% "cats-effect-testing-scalatest" % "0.4.1" % Test
 )
+
+
+coverageEnabled := true

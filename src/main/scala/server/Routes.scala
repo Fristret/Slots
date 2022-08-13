@@ -16,16 +16,15 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import server.utils.CheckSyntax._
 import server.service.Doobie._
-import game.models.RPGElements.Stage
 import cats.implicits.catsSyntaxSemigroup
-import game.RPG2.createNewStage
-import game.SlotTest
+import game.PRG.createNewStage
+import game.Slot
 import io.circe.Json
 import io.circe.parser._
 import io.circe.syntax.EncoderOps
+import game.models.MiniGameObjects._
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.DurationInt
 
 object Routes {
 
@@ -38,14 +37,14 @@ object Routes {
 
   // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana232\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
 
-  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana23\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
+  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masanata23123\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
 
   //websocat ws://127.0.0.1:9001/message/"fc9a9be3-8830-4cc3-b909-c2eeef7d8b42&masana232"
   //websocat ws://127.0.0.1:9001/message/"ff63a28f-4d59-49bf-a143-84bd2e58c83f&masana23"
   //вход Bet: {"amount": "200"}
   //вход Balance: {"message": "balance"}
 
-  def messageRoute(topicGlobal: Topic[IO, String], cache: Ref[IO, Map[Token, Instant]], rpgProgress: Ref[IO, Map[Login, Stage]]): HttpRoutes[IO] = {
+  def messageRoute(topicGlobal: TopicGlobal, cache: Cache, rpgProgress: RPGProgress): HttpRoutes[IO] = {
 
     HttpRoutes.of[IO] {
       case GET -> Root / "message" / id =>
@@ -56,37 +55,37 @@ object Routes {
           _ => Some(Login(token.id.split("&").reverse.head))
         }
 
-        def spinRepeat(f: => IO[Win], times: Int,  topicClient: Topic[IO, String], count: Int = 1): IO[Int] = {for {
-          win <- f
-          _ <- topicClient.publish1(win.asJson.noSpaces)
-        } yield win.value} |+| (if (count >= times) IO(0) else spinRepeat(f, times, topicClient, count + 1))
+        def spinRepeat(f: => IO[SlotExit], times: Int,  topicClient: TopicClient, count: Int = 1): IO[Int] = f.flatMap(win => IO(win.value) |+| (if (count >= times) IO(0) else spinRepeat(f, times, topicClient, count + 1)))
 
-        def doBet(bet: Bet, login: Login, topicClient: Topic[IO, String]): IO[String] = {
-          val slot = SlotTest(bet, login, rpgProgress)
+        def doBet(bet: Bet, login: Login, topicClient: TopicClient, miniGameRef: MiniGameRef): IO[String] = {
           for {
+            spirit <- miniGameRef.get
+            slot = Slot(bet, login, topicClient, rpgProgress, spirit)
             _ <- updateBalance(-bet.amount, login)
             bal <- getBalance(login)
             _ <- topicClient.publish1(BalanceOut(bal).asJson.noSpaces)
-            win <- slot.spin
-            _ <- topicClient.publish1(win.asJson.noSpaces)
-            winFree <- if (win.freeSpins) spinRepeat(slot.spin, 10, topicClient)
+            slotExit <- slot.spin
+            winFree <- if (slotExit.freeSpins) spinRepeat(slot.spin, 10, topicClient)
                 else IO(0)
-            _ <- if (win.value + winFree >= bet.amount * 5) topicGlobal.publish1(WinOutput(login.value, win.value, Instant.now()).asJson.toString)
+            _ <- if (slotExit.value + winFree >= bet.amount * 5) topicGlobal.publish1(WinOutput(login.value, slotExit.value, Instant.now()).asJson.toString)
               else IO.unit
-            _ <- updateBalance(win.value + winFree, login)
+            _ <- updateBalance(slotExit.value + winFree, login)
             balanceAfterWin <- getBalance(login)
           } yield BalanceOut(balanceAfterWin).asJson.noSpaces
         }
 
-        def toClient(topicClient: Topic[IO, String]): Stream[IO, WebSocketFrame] = {
+        def changeSpirit(miniGameRef: MiniGameRef, spirit: MiniGameUnit): IO[Unit] =
+          miniGameRef.update(_ => spirit)
+
+        def toClient(topicClient: TopicClient): Stream[IO, WebSocketFrame] = {
           val stream1 = topicGlobal
-            .subscribe(1)
+            .subscribe(10)
             .map(WebSocketFrame.Text(_))
-          val stream2 = topicClient.subscribe(15).map(WebSocketFrame.Text(_))
-          stream2 ++ stream1
+          val stream2 = topicClient.subscribe(30).map(WebSocketFrame.Text(_))
+          Stream(stream2, stream1).parJoinUnbounded
         }
 
-        def fromClient(login: Login, topicClient: Topic[IO, String]): Pipe[IO, WebSocketFrame, Unit] = topicClient
+        def fromClient(login: Login, topicClient: TopicClient, miniGameRef: MiniGameRef): Pipe[IO, WebSocketFrame, Unit] = topicClient
           .publish
           .compose[Stream[IO, WebSocketFrame]](_.collect {
             case WebSocketFrame.Text(message, _) =>
@@ -100,10 +99,10 @@ object Routes {
               }
               messageParsed.flatMap{
                   case bet: Bet => bet.checkSyntax match {
-                    case Right(_) => doBet(bet, login, topicClient)
+                    case Right(_) => doBet(bet, login, topicClient, miniGameRef)
                     case Left(err) => IO.raiseError(new IllegalStateException(err))
                   }
-                  case _: Balance => getBalance(login).map(_.toString)
+                  case option: MiniGameOption => changeSpirit(miniGameRef, option.spirit).flatMap(_ => miniGameRef.get.map(x => MiniGameOption(x).asJson.noSpaces))
                   case _ => IO.pure("")
                 }.handleErrorWith(e => IO(ErrorMessage(s"${e.getMessage}").asJson.noSpaces)).unsafeRunSync()
           }
@@ -114,6 +113,7 @@ object Routes {
           res <- verification.flatMap {
             case None => BadRequest()
             case Some(name) => for {
+              miniGameRef <- Ref[IO].of[MiniGameUnit](Leaf)
               _ <- rpgProgress.modify{
                     map => map.get(name) match {
                       case None => (map + (name -> createNewStage), map)
@@ -122,7 +122,7 @@ object Routes {
                   }
               _ <- cache.modify(map => (map.removed(token), ()))
               response <- WebSocketBuilder[IO].build(
-                receive = fromClient(name, topicClient),
+                receive = fromClient(name, topicClient, miniGameRef),
                 send = toClient(topicClient)
               )
             } yield response
@@ -151,6 +151,7 @@ object Routes {
                 case Right(_) => verifyPlayer(player) *> Ok(tokenGenerator(player))
                 case Left(err) => BadRequest(ErrorMessage(err))
               }
+              case _ => BadRequest(ErrorMessage("Wrong message"))
             }
             } yield resp
         }.handleErrorWith(e => BadRequest(ErrorMessage(s"${e.getMessage}")))

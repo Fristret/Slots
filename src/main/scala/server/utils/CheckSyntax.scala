@@ -8,13 +8,13 @@ object CheckSyntax {
     def check(value: A): Either[String, Unit]
   }
 
-  implicit val mailSyntax: Syntax[Mail] = (mail: Mail) => if (mail.value.matches("[a-zA-Z0-9]+@[a-z]+[.][a-z]+")) Right()
+  implicit val mailSyntax: Syntax[Mail] = (mail: Mail) => if (mail.value.matches("[a-zA-Z0-9]+@[a-z]+[.][a-z]+")) Right(())
   else Left("Wrong mail")
 
-  implicit val loginSyntax: Syntax[Login] = (login: Login) => if (login.value.length >= 3 && login.value.length <= 15 && login.value.matches("[a-zA-Z0-9]+")) Right()
+  implicit val loginSyntax: Syntax[Login] = (login: Login) => if (login.value.length >= 3 && login.value.length <= 15 && login.value.matches("[a-zA-Z0-9]+")) Right(())
   else Left("Wrong login")
 
-  implicit val passwordSyntax: Syntax[Password] = (password: Password) => if (password.value.length >= 6 && password.value.length <= 15 && password.value.matches("[a-zA-Z0-9]+")) Right()
+  implicit val passwordSyntax: Syntax[Password] = (password: Password) => if (password.value.length >= 6 && password.value.length <= 15 && password.value.matches("[a-zA-Z0-9]+")) Right(())
   else Left("Wrong password")
 
   implicit val playerSyntax: Syntax[Player] = (player: Player) => player.login.checkSyntax match {
@@ -26,7 +26,7 @@ object CheckSyntax {
     case Right(_) => newPlayer.player.checkSyntax
     case Left(err) => Left(err)
   }
-  implicit val betSyntax: Syntax[Bet] = (bet: Bet) => if (bet.amount >= 10 && bet.amount <= 10000) Right()
+  implicit val betSyntax: Syntax[Bet] = (bet: Bet) => if (bet.amount >= 10 && bet.amount <= 10000) Right(())
   else Left("Wrong bet")
 
   implicit class SyntaxOps[A](value: A) {

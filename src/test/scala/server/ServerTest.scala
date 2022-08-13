@@ -1,98 +1,63 @@
 package server
 
 import cats.effect.IO
-import cats.implicits.catsSyntaxOptionId
-import fs2.Stream
+import io.circe.syntax.EncoderOps
 import org.http4s.headers.`Content-Type`
-import org.http4s.implicits.http4sLiteralsSyntax
-import org.http4s.{EmptyBody, EntityBody, Headers, MediaType, Method, Request, Response, Status, Uri}
+import org.http4s.{Headers, MediaType, Method, Request, Response, Status}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import server.Server._
 import org.scalatest.OptionValues
+import server.models.Protocol.{Login, Mail, NewPlayer, Password, Player}
+import ForServerTest._
+import io.circe.Json
+import server.json.MessageJson._
+import server.service.Doobie.deletePlayer
+import org.http4s.circe.CirceEntityCodec._
+import org.http4s.implicits.http4sLiteralsSyntax
 
 
 class ServerTest extends AnyFreeSpec with Matchers with OptionValues{
 
   "Server should" - {
-    "Registration fail and success authorization" in {
-      val response = httpApp.flatMap(
-        _.run(
-          makeAuthorizationRequest(
-            body = s"""{"login": {"value": "masana232"}, "password": {"value": "mig943g"}}""",
-          )
-        )
-      )
-      val response1 = httpApp.flatMap(
-        _.run(
-          makeAuthorizationRequest(
-            body = s"""{"mail": {"value": "masana23@mail.ru"}, "player": {"login": {"value": "masana2322"}, "password": {"value": "mig943g"}}}""",
-          )
-        )
-      )
-      verifyResponseStatus(response1, Status.BadRequest)
-      verifyResponseStatus(response, Status.Ok)
-    }
-
-    "reject invalid transaction requests via HTTP POST" in {
-      val response = httpApp.flatMap(
-        _.run(
-          makeAuthorizationRequest(
-            body = "invalid",
-          )
-        )
-      )
+    "reject invalid authorization" in {
+      val response = httpApp.flatMap(_.run(
+        makeAuthorizationRequest(Json.fromString("invalid"))
+      ))
       verifyResponseStatus(response, Status.BadRequest)
     }
 
     "create and login player" in {
-      val response = httpApp.flatMap(
-        _.run(
-          makeAuthorizationRequest(
-            body = s"""{"login": {"value": "test3"}, "password": {"value": "1241244"}}""",
-          )
-        )
+      lazy val response = httpApp.flatMap(_.run(makeAuthorizationRequest(newPlayerTest.asJson))
       )
-      val response1 = httpApp.flatMap(
+      verifyResponseStatus(response, Status.Ok)
+      lazy val response1 = httpApp.flatMap(
         _.run(
           makeAuthorizationRequest(
-            body = s"""{"mail": {"value": "masana23@mail.ru"}, "player": {"login": {"value": "test3"}, "password": {"value": "1241244"}}}""",
+            playerTest.asJson
           )
         )
       )
       verifyResponseStatus(response1, Status.Ok)
-      verifyResponseStatus(response, Status.Ok)
+      deletePlayer(loginTest).unsafeRunSync()
     }
   }
 
-  private def makeAuthorizationRequest(body: String): Request[IO] =
-    makeRequest(
-      method = Method.POST,
-      headers = Headers.of(`Content-Type`(MediaType.application.json)),
-      uri = uri"/authorization",
-      body = body.some,
-    )
+  private def makeAuthorizationRequest(body: Json): Request[IO] = Request(Method.POST, uri = uri"/authorization", headers = Headers.of(`Content-Type`(MediaType.application.json))).withEntity(body)
 
-  private def makeRequest(
-                           method: Method,
-                           headers: Headers,
-                           uri: Uri,
-                           body: Option[String],
-                         ): Request[IO] =
-    Request(
-      method = method,
-      uri = uri,
-      headers = headers,
-      body = body.fold[EntityBody[IO]](EmptyBody) { body =>
-        Stream.emits(os = body.map(_.toByte))
-      },
-    )
-
-  private def verifyResponseStatus[A](
+  private def verifyResponseStatus(
                                        response: IO[Response[IO]],
                                        expectedStatus: Status,
                                      ): Unit = (for {
     response <- response
     _ <- IO(response.status shouldBe expectedStatus)
   } yield ()).unsafeRunSync()
+}
+
+object ForServerTest {
+  val loginTest: Login = Login("testLogin")
+  val passwordTest: Password = Password("testPassword")
+  val mailTest: Mail = Mail("test@mail.ru")
+  val playerTest: Player = Player(loginTest, passwordTest)
+  val newPlayerTest: NewPlayer = NewPlayer(mailTest, playerTest)
 }
