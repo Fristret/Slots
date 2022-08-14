@@ -11,9 +11,9 @@ trait RNG[F[_]] {
   def generator: F[Int]
   def generatorRPG: F[Int]
   def generatorMiniGame: F[Int]
-  def getElement: F[Element]
+  def getElement: F[Symbol]
   def generateColumn: F[Column]
-  def generateScreen: F[Screen]
+  def generateScreen: F[Reel]
 }
 
 object RNG {
@@ -25,7 +25,7 @@ object RNG {
 
     def generatorMiniGame: F[Int] = Sync[F].delay(Random.between(1, 5))
 
-    def getElement: F[Element] = for {
+    def getElement: F[Symbol] = for {
       int <- generator
       res = int match {
         case i if i % 10 == 1 && i < 30 => Jackpot //3%
@@ -47,12 +47,13 @@ object RNG {
       element3 <- getElement
     }yield Column(Map(1 -> element1) ++ Map(2 -> element2) ++ Map(3 -> element3))
 
-    def generateScreen: F[Screen] = for {
+    def generateScreen: F[Reel] = for {
       column1 <- generateColumn
       column2 <- generateColumn
       column3 <- generateColumn
       column4 <- generateColumn
       column5 <- generateColumn
-    } yield Screen(List(column1, column2, column3, column4, column5))
+    } yield Reel(List(column1, column2, column3, column4, column5))
+
   }
 }

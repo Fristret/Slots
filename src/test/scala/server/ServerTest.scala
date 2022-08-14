@@ -7,7 +7,6 @@ import org.http4s.{Headers, MediaType, Method, Request, Response, Status}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import server.Server._
-import org.scalatest.OptionValues
 import server.models.Protocol.{Login, Mail, NewPlayer, Password, Player}
 import ForServerTest._
 import io.circe.Json
@@ -17,7 +16,7 @@ import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits.http4sLiteralsSyntax
 
 
-class ServerTest extends AnyFreeSpec with Matchers with OptionValues{
+class ServerTest extends AnyFreeSpec with Matchers{
 
   "Server should" - {
     "reject invalid authorization" in {

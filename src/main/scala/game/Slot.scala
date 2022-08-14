@@ -5,7 +5,7 @@ import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import fs2.concurrent.Topic
-import game.PRG.createNewStage
+import game.RPG.createNewStage
 import game.models.MiniGameObjects.MiniGameUnit
 import game.models.RPGElements.Stage
 import game.models.SlotObjects._
@@ -17,18 +17,18 @@ import server.json.MessageJson._
 import server.models.Protocol._
 
 trait Slot[F[_]]{
-  def formWiningMap(screen: Screen): Map[Int, Map[List[Element], Int]]
-  def getWiningMap(map: Map[Int, Map[List[Element], Int]]): Map[List[Element], Int]
-  def paymentCheck(list: List[Element]): Map[List[Element], Int]
-  def getElements(list: List[List[Element]]): List[Element]
-  def checkWin(screen: Screen): F[SlotExit]
+  def formPayMap(screen: Reel): Map[Int, Map[List[Symbol], Int]]
+  def getPayMap(map: Map[Int, Map[List[Symbol], Int]]): Map[List[Symbol], Int]
+  def paymentCheck(list: List[Symbol]): Map[List[Symbol], Int]
+  def getElements(list: List[List[Symbol]]): List[Symbol]
+  def checkWin(screen: Reel): F[SlotExit]
   def spin: F[SlotExit]
 }
 
 object Slot {
 
   def apply[F[_]: Monad : Sync](bet: Bet, login: Login, topicClient: Topic[F, String], rpgProgress: Ref[F, Map[Login, Stage]], miniGameUnit: MiniGameUnit): Slot[F] = new Slot[F] {
-    def formWiningMap(screen: Screen): Map[Int, Map[List[Element], Int]] = {
+    def formPayMap(screen: Reel): Map[Int, Map[List[Symbol], Int]] = {
         Map(1 -> paymentCheck(checkRow(1, 1, screen.column))) |+|
         Map(2 -> paymentCheck(checkRow(2, 1, screen.column))) |+|
         Map(3 -> paymentCheck(checkRow(3, 1, screen.column))) |+|
@@ -46,15 +46,15 @@ object Slot {
         Map(15 -> paymentCheck(check8(1, screen.column)))
     }
 
-    def getWiningMap(map: Map[Int, Map[List[Element], Int]]): Map[List[Element], Int] = {
-       map.values.toList.filter(map => map.nonEmpty).foldLeft(Map.empty[List[Element], Int])((a, b) => a |+| b)
+    def getPayMap(map: Map[Int, Map[List[Symbol], Int]]): Map[List[Symbol], Int] = {
+       map.values.toList.filter(map => map.nonEmpty).foldLeft(Map.empty[List[Symbol], Int])((a, b) => a |+| b)
     }
 
-    def paymentCheck(list: List[Element]): Map[List[Element], Int] = {
-      val map = Map.empty[List[Element], Int]
+    def paymentCheck(list: List[Symbol]): Map[List[Symbol], Int] = {
+      val map = Map.empty[List[Symbol], Int]
       if (list.isEmpty) map
       else {
-        val newList: List[Element] = list.indexOf(Wild) match {
+        val newList: List[Symbol] = list.indexOf(Wild) match {
           case 0 => list.map {
             case Wild => Option(list(1)) match {
               case Some(x) => x
@@ -76,60 +76,58 @@ object Slot {
           case List(Point5, Point5, Point5, Point5, Point5) => map.updated(list, (bet.amount * 0.4).toInt)
           case List(Point5, Point5, Point5, Point5, _) => map.updated(list, (bet.amount * 0.35).toInt)
           case List(Point5, Point5, Point5, _, _) => map.updated(list, (bet.amount * 0.3).toInt)
-          case List(Point10, Point10, Point10, Point10, Point10) => map.updated(list, (bet.amount * 0.8).toInt)
-          case List(Point10, Point10, Point10, Point10, _) => map.updated(list, (bet.amount * 0.7).toInt)
+          case List(Point10, Point10, Point10, Point10, Point10) => map.updated(list, (bet.amount * 0.7).toInt)
+          case List(Point10, Point10, Point10, Point10, _) => map.updated(list, (bet.amount * 0.65).toInt)
           case List(Point10, Point10, Point10, _, _) => map.updated(list, (bet.amount * 0.6).toInt)
-          case List(Sword, Sword, Sword, Sword, Sword) => map.updated(list, (bet.amount * 0.8).toInt)
-          case List(Sword, Sword, Sword, Sword, _) => map.updated(list, (bet.amount * 0.7).toInt)
-          case List(Sword, Sword, Sword, _, _) => map.updated(list, (bet.amount * 0.6).toInt)
+          case List(Sword, Sword, Sword, Sword, Sword) => map.updated(list, (bet.amount * 0.6).toInt)
+          case List(Sword, Sword, Sword, Sword, _) => map.updated(list, (bet.amount * 0.4).toInt)
+          case List(Sword, Sword, Sword, _, _) => map.updated(list, (bet.amount * 0.3).toInt)
           case List(Bag, Bag, Bag, Bag, Bag) => map.updated(list, (bet.amount * 0.8).toInt)
-          case List(Bag, Bag, Bag, Bag, _) => map.updated(list, (bet.amount * 0.7).toInt)
-          case List(Bag, Bag, Bag, _, _) => map.updated(list, (bet.amount * 0.6).toInt)
+          case List(Bag, Bag, Bag, Bag, _) => map.updated(list, (bet.amount * 0.5).toInt)
+          case List(Bag, Bag, Bag, _, _) => map.updated(list, (bet.amount * 0.2).toInt)
           case List(Chest, Chest, Chest, Chest, Chest) => map.updated(list, (bet.amount * 0.8).toInt)
-          case List(Chest, Chest, Chest, Chest, _) => map.updated(list, (bet.amount * 0.7).toInt)
-          case List(Chest, Chest, Chest, _, _) => map.updated(list, (bet.amount * 0.6).toInt)
-          case List(Jackpot, Jackpot, Jackpot, Jackpot, Jackpot) => map.updated(list, bet.amount * 1000)
-          case List(Jackpot, Jackpot, Jackpot, Jackpot, _) => map.updated(list, bet.amount * 500)
+          case List(Chest, Chest, Chest, Chest, _) => map.updated(list, (bet.amount * 0.5).toInt)
+          case List(Chest, Chest, Chest, _, _) => map.updated(list, (bet.amount * 0.2).toInt)
+          case List(Jackpot, Jackpot, Jackpot, Jackpot, Jackpot) => map.updated(list, bet.amount * 500)
+          case List(Jackpot, Jackpot, Jackpot, Jackpot, _) => map.updated(list, bet.amount * 200)
           case List(Jackpot, Jackpot, Jackpot, _, _) => map.updated(list, bet.amount * 100)
-          case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, FreeSpins) => map.updated(list, (bet.amount * 1.5).toInt)
-          case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, _) => map.updated(list, (bet.amount * 1.2).toInt)
-          case List(FreeSpins, FreeSpins, FreeSpins, _, _) => map.updated(list, (bet.amount * 1.1).toInt)
-          case List(MiniGame, MiniGame, MiniGame, MiniGame, MiniGame) => map.updated(list, (bet.amount * 0.75).toInt)
-          case List(MiniGame, MiniGame, MiniGame, MiniGame, _) => map.updated(list, (bet.amount * 0.7).toInt)
-          case List(MiniGame, MiniGame, MiniGame, _, _) => map.updated(list, (bet.amount * 0.6).toInt)
-          case List(Action, Action, Action, Action, Action) => map.updated(list, (bet.amount * 1.6).toInt)
-          case List(Action, Action, Action, Action, _) => map.updated(list, (bet.amount * 1.2).toInt)
-          case List(Action, Action, Action, _, _) => map.updated(list, (bet.amount * 0.8).toInt)
+          case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, FreeSpins) => map.updated(list, (bet.amount * 0.8).toInt)
+          case List(FreeSpins, FreeSpins, FreeSpins, FreeSpins, _) => map.updated(list, (bet.amount * 0.5).toInt)
+          case List(FreeSpins, FreeSpins, FreeSpins, _, _) => map.updated(list, (bet.amount * 0.2).toInt)
+          case List(MiniGame, MiniGame, MiniGame, MiniGame, MiniGame) => map.updated(list, (bet.amount * 0.8).toInt)
+          case List(MiniGame, MiniGame, MiniGame, MiniGame, _) => map.updated(list, (bet.amount * 0.5).toInt)
+          case List(MiniGame, MiniGame, MiniGame, _, _) => map.updated(list, (bet.amount * 0.2).toInt)
+          case List(Action, Action, Action, Action, Action) => map.updated(list, (bet.amount * 0.8).toInt)
+          case List(Action, Action, Action, Action, _) => map.updated(list, (bet.amount * 0.5).toInt)
+          case List(Action, Action, Action, _, _) => map.updated(list, (bet.amount * 0.2).toInt)
           case _ => map
         }
       }
     }
 
-    def getElements(list: List[List[Element]]): List[Element] = list.headOption match {
+    def getElements(list: List[List[Symbol]]): List[Symbol] = list.headOption match {
       case None => List()
       case Some(x) => List(x.headOption match {
         case Some(value) => value
-        case None => NoElement
+        case None => NoSymbol
       }) ++ getElements(list.tailSave)
     }
 
-    def rec(map: Map[Int, Map[List[Element], Int]], list: List[Map[List[Element], Int]]): Map[Int, Map[List[Element], Int]] = if (list.isEmpty) Map.empty[Int, Map[List[Element], Int]]
-    else map.filter(_._2 == list.headOption.getOrElse(List(Map.empty[List[Element], Int])))
 
-    def filterWiningMap(map: Map[Int, Map[List[Element], Int]]): Map[Int, Map[List[Element], Int]] = {
+    def filterFormedPayMap(map: Map[Int, Map[List[Symbol], Int]]): Map[Int, Map[List[Symbol], Int]] = {
       map.filter(a => a._2.nonEmpty)
     }
 
-    def checkWin(screen: Screen): F[SlotExit] = {
-      val winingMapFormed = formWiningMap(screen)
-      val winingLine = WiningLine(filterWiningMap(winingMapFormed).keys.toList.sorted)
-      val winingMap = getWiningMap(winingMapFormed)
-      val payment = winingMap.foldLeft(0)(_ + _._2)
-      val listWithWin = winingMap.keys.toList
-      val listRPGAction = getElements(listWithWin)
-      val rpg = PRG(listRPGAction, login, bet, topicClient, rpgProgress, miniGameUnit)
+    def checkWin(screen: Reel): F[SlotExit] = {
+      val payMapFormed = formPayMap(screen)
+      val payLine = PayLine(filterFormedPayMap(payMapFormed).keys.toList.sorted)
+      val payMap = getPayMap(payMapFormed)
+      val payment = payMap.foldLeft(0)(_ + _._2)
+      val winningCombinations = payMap.keys.toList
+      val listRPGAction = getElements(winningCombinations)
+      val rpg = RPG(listRPGAction, login, bet, topicClient, rpgProgress, miniGameUnit)
       for {
-        _ <- topicClient.publish1(winingLine.asJson.noSpaces)
+        _ <- topicClient.publish1(payLine.asJson.noSpaces)
         _ <- topicClient.publish1(Win(payment).asJson.noSpaces)
         rewardsRPG <- rpg.playRPG
         stageRPG = rewardsRPG.keys.toList.headOption match {

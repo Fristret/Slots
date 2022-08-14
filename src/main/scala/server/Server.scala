@@ -23,7 +23,7 @@ object Server extends IOApp {
     _ <- Doobie.run
     cacheOpt = Cache(cache)
     _ <- cacheOpt.cacheOptimizer.start
-    topic <- Topic[IO, String]("Global")
+    topic <- Topic[IO, String]("")
   } yield messageRoute(topic, cache, rpgProgress).orNotFound
 
   override def run(args: List[String]): IO[ExitCode] = for {

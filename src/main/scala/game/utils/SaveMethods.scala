@@ -1,6 +1,6 @@
 package game.utils
 
-import game.models.SlotObjects.{Column, Element, NoElement}
+import game.models.SlotObjects.{Column, Symbol, NoSymbol}
 
 object SaveMethods {
 
@@ -8,8 +8,8 @@ object SaveMethods {
     def getTail(list: List[A]): List[A]
   }
 
-  def getHead(int: Int, list: List[Column]): Element = list.headOption match {
-    case None => NoElement
+  def getHead(int: Int, list: List[Column]): Symbol = list.headOption match {
+    case None => NoSymbol
     case Some(x) => x.elements(int)
   }
 
@@ -23,12 +23,12 @@ object SaveMethods {
     case Some(x) => x
   }
 
-  implicit val elementTail: SaveTail[Element] = (list: List[Element]) => Option(list.drop(1)) match {
+  implicit val elementTail: SaveTail[Symbol] = (list: List[Symbol]) => Option(list.drop(1)) match {
     case None => List()
     case Some(x) => x
   }
 
-  implicit val listTail: SaveTail[List[Element]] = (list: List[List[Element]]) => Option(list.drop(1)) match {
+  implicit val listTail: SaveTail[List[Symbol]] = (list: List[List[Symbol]]) => Option(list.drop(1)) match {
     case None => List(List())
     case Some(x) => x
   }

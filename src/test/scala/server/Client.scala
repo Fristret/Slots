@@ -4,6 +4,7 @@ import cats.Monad
 import cats.effect.{ExitCode, IO, IOApp, Resource, Timer}
 import cats.implicits._
 import io.circe.syntax.EncoderOps
+import io.jvm.uuid.UUID
 import org.http4s.Method.POST
 import org.http4s.Request
 import org.http4s.client.blaze.BlazeClientBuilder
@@ -32,7 +33,7 @@ object Client extends IOApp {
   private val uri = uri"http://localhost:9001/authorization"
 
   private def clientResource(token: Token): Resource[IO, WSConnectionHighLevel[IO]] = Resource.eval(IO(HttpClient.newHttpClient()))
-    .flatMap(JdkWSClient[IO](_).connectHighLevel(WSRequest(uri"ws://127.0.0.1:9001/message/" / token.id)))
+    .flatMap(JdkWSClient[IO](_).connectHighLevel(WSRequest(uri"ws://127.0.0.1:9001/game/" / token.id)))
 
   private val login1 = Login("masana23")
   private val password1 = Password("qwerty12345")
@@ -48,8 +49,15 @@ object Client extends IOApp {
       val registrationReq = Request[IO](method = POST, uri).withEntity(jsonReg)
       val logInReq = Request[IO](method = POST, uri).withEntity(jsonAut)
       for {
-        _ <- client.fetchAs[ErrorMessage](registrationReq).option
-        token <- client.fetchAs[Token](logInReq)
+        message <- client.fetchAs[Message](registrationReq).handleErrorWith(e => IO(s"${e.getMessage}"))
+        _ <- IO(println(message))
+        _ <- Timer[IO].sleep(5000.milliseconds)
+        token <- client.fetchAs[Token](logInReq).option.map {
+          case Some(value) => value
+          case None => Token("0")
+        }
+        _ <- IO(println(token))
+        _ <- Timer[IO].sleep(5000.milliseconds)
       } yield token
     }
     _ <- clientResource(tok).use { conn => {
@@ -57,12 +65,14 @@ object Client extends IOApp {
         _ <- conn.receiveStream.collect {
           case WSFrame.Text(s, _) => println(s)
         }.compile.drain.start
-        _ <- sendMessage(conn, """{"amount": "200"}""", 20)
+        _ <- sendMessage(conn, """{"amount": "200"}""", 2)
+        _ <- sendMessage(conn, """invalid""", 1)
+        _ <- sendMessage(conn, """{"amount": "20000000"}""", 1)
         _ <- sendMessage(conn, """{"spirit": "Fire"}""", 1)
-        _ <- sendMessage(conn, """{"amount": "200"}""", 5)
+        _ <- sendMessage(conn, """{"amount": "200"}""", 1)
         _ <- conn.sendClose("No reason")
       } yield ()
-    }.handleErrorWith(e => IO(s"${e.getMessage}"))
     }
+    }.handleErrorWith(e => IO(s"${e.getMessage}"))
   } yield ExitCode.Success
 }

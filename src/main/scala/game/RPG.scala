@@ -9,7 +9,7 @@ import game.models.MiniGameObjects.MiniGameUnit
 import game.models.RPGElements._
 import game.models.SlotObjects._
 import game.utils.SaveMethods.SaveTailOps
-import server.models.Protocol.{ActionOutput, Bet, Login, RPGUpdateStage}
+import server.models.Protocol.{Bet, Login}
 import game.utils.RNG
 import io.circe.syntax.EncoderOps
 import server.json.MessageJson._
@@ -17,37 +17,25 @@ import server.json.MessageJson._
 import scala.annotation.tailrec
 import scala.math.pow
 
-trait PRG[F[_]]{
-  def createNewRPG: F[Map[Login, Stage]]
-  def randomRPG: F[Int]
+trait RPG[F[_]]{
   def enemyAttack(enemy: Enemy, hero: Hero): F[Hero]
   def heroAttack(enemy: Enemy, hero: Hero): F[Enemy]
   def spawnEnemy(stage: Stage): Enemy
   def getKillReward(stage: Stage): Map[Stage, Int]
   def enemyTurn(dmgTurn: Int, stage: Stage): F[Map[Stage, Int]]
   def fight(NotDoDmgOrDo: Boolean, stage: Stage): F[Map[Stage, Int]]
-  def updateProgress(stage: Stage): F[Unit]
-  def getStage: F[Stage]
   def giveBagEquipment(int: Int, ammunition: Ammunition): Ammunition
   def giveChestEquipment(ammunition: Ammunition): F[Ammunition]
-  def actionGenerator: F[ActionRPG]
-  def updateStage(listElement: Element, stage: Stage): F[Stage]
+  def updateStage(element: Symbol, stage: Stage): F[Stage]
   def playRPG: F[Map[Stage, Int]]
 }
 
 
-object PRG {
+object RPG {
 
   def createNewStage: Stage = Stage(1, 1, Enemy(Mob, 3, 1, 1), Hero(5, 1, Ammunition(0, 0, 0, 0, 0)), 0)
 
-  def apply[F[_] : Monad : Sync](listElement: List[Element], login: Login, bet: Bet, topicClient: Topic[F, String], rpgProgress: Ref[F, Map[Login, Stage]], miniGameUnit: MiniGameUnit): PRG[F] = new PRG[F] {
-
-    def createNewRPG: F[Map[Login, Stage]] = rpgProgress.updateAndGet{
-      map => map.get(login) match {
-        case None => map + (login -> createNewStage)
-        case Some(_) => map
-      }
-    }
+  def apply[F[_] : Monad : Sync](listElement: List[Symbol], login: Login, bet: Bet, topicClient: Topic[F, String], rpgProgress: Ref[F, Map[Login, Stage]], miniGameUnit: MiniGameUnit): RPG[F] = new RPG[F] {
 
     def randomRPG: F[Int] = {
       val rng = RNG.apply[F]
@@ -161,17 +149,17 @@ object PRG {
       _ <- topicClient.publish1(ActionOutput(action, newStage).asJson.noSpaces)
     }yield newStage
 
-    def updateStage(element: Element, stage: Stage): F[Stage] =
+    def updateStage(element: Symbol, stage: Stage): F[Stage] =
         element match {
           case Sword => heroAttack(stage.enemy, stage.hero).map(newEnemy => stage.copy(enemy = newEnemy))
           case Bag => stage.copy(hero = stage.hero.copy(ammunition = giveBagEquipment(1, stage.hero.ammunition))).pure[F]
           case Chest => giveChestEquipment(stage.hero.ammunition).map(ammunition => stage.copy(hero = stage.hero.copy(ammunition = ammunition)))
           case Action => doAction(stage: Stage)
-          case NoElement => stage.pure[F]
+          case NoSymbol => stage.pure[F]
           case Jackpot => Stage(11, stage.level, Enemy(Boss, 0, 0, 0), stage.hero, stage.turn).pure[F]
           case MiniGame =>
-            val minigame = SlotMiniGame(topicClient, miniGameUnit)
-            val list = minigame.play
+            val miniGame = SlotMiniGame(topicClient, miniGameUnit)
+            val list = miniGame.play
             for {
             list <- list
             newStage <- recursion(list, stage)
@@ -179,11 +167,11 @@ object PRG {
           case _ => stage.pure[F]
         }
 
-    def recursion(list: List[Element], stage: Stage): F[Stage] = if (list.isEmpty) stage.pure[F]
+    def recursion(list: List[Symbol], stage: Stage): F[Stage] = if (list.isEmpty) stage.pure[F]
     else {
       val element = list.headOption match {
         case Some(x) => x
-        case None => NoElement
+        case None => NoSymbol
       }
       for {
         newStage <- updateStage(element, stage)

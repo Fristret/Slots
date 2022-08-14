@@ -10,7 +10,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.implicits.catsSyntaxSemigroup
 import fs2.concurrent.Topic
-import game.PRG.createNewStage
+import game.RPG.createNewStage
 import game.models.MiniGameObjects.Leaf
 import ForSlotTests._
 
@@ -25,19 +25,17 @@ class SlotTests extends AsyncFreeSpec with Matchers with AsyncIOSpec{
     topic <- topic
   } yield Slot(Bet(20), playerLogin, topic, ref, Leaf)
 
-  "winning map" - {
+  "Slot should" - {
     "win = 0 and win = 6" in{
       val action = for{
         slot <- slot
-        map = slot.getWiningMap(slot.formWiningMap(noElementScreen))
-        map2 = slot.getWiningMap(slot.formWiningMap(point5RowScreen))
+        map = slot.getPayMap(slot.formPayMap(noElementScreen))
+        map2 = slot.getPayMap(slot.formPayMap(point5RowScreen))
       }yield (map, map2)
-      action.asserting(_._1 shouldBe Map.empty[List[Element], Int])
-      action.asserting(_._2 shouldBe Map(List(Point5, Point5, Point5, NoElement, NoElement) -> 6))
+      action.asserting(_._1 shouldBe Map.empty[List[Symbol], Int])
+      action.asserting(_._2 shouldBe Map(List(Point5, Point5, Point5, NoSymbol, NoSymbol) -> 6))
     }
-  }
 
-  "play slot" - {
     "sum win should be less than bet" in {
       val action = for {
         slot <- slot
@@ -71,7 +69,7 @@ class SlotTests extends AsyncFreeSpec with Matchers with AsyncIOSpec{
     }
   }
 
-  def spinRepeatByBoolean(f: => IO[SlotExit], element: Element, count: Int = 1): IO[Int] = for {
+  def spinRepeatByBoolean(f: => IO[SlotExit], element: Symbol, count: Int = 1): IO[Int] = for {
     exit <- f
     count <- if (exit.line.contains(element)) IO(count)
       else spinRepeatByBoolean(f, element, count = count + 1)
@@ -84,9 +82,9 @@ class SlotTests extends AsyncFreeSpec with Matchers with AsyncIOSpec{
 }
 
 object ForSlotTests {
-  val noElementScreen: Screen = Screen(List(Column(Map(1 -> NoElement, 2 -> NoElement, 3 -> NoElement)), Column(Map(1 -> Point5, 2 -> Wild, 3 -> Point10)), Column(Map(1 -> Wild, 2 -> FreeSpins, 3 -> Point10)), Column(Map(1 -> Point5, 2 -> Point10, 3 -> Point10)), Column(Map(1 -> Point10, 2 -> Point10, 3 -> Point5))))
-  val point5RowScreen: Screen = Screen(List(Column(Map(1 -> Point5, 2 -> NoElement, 3 -> NoElement)), Column(Map(1 -> Point5, 2 -> NoElement, 3 -> NoElement)), Column(Map(1 -> Point5, 2 -> NoElement, 3 -> NoElement)), Column(Map(1 -> NoElement, 2 -> NoElement, 3 -> NoElement)), Column(Map(1 -> NoElement, 2 -> NoElement, 3 -> NoElement))))
-  val customScreen: Screen = Screen(List(Column(Map(1 -> Action, 2 -> Sword, 3 -> Point5)), Column(Map(1 -> Point5, 2 -> Wild, 3 -> Point10)), Column(Map(1 -> Wild, 2 -> FreeSpins, 3 -> Point10)), Column(Map(1 -> Point5, 2 -> Point10, 3 -> Point10)), Column(Map(1 -> Point10, 2 -> Point10, 3 -> Point5))))
+  val noElementScreen: Reel = Reel(List(Column(Map(1 -> NoSymbol, 2 -> NoSymbol, 3 -> NoSymbol)), Column(Map(1 -> Point5, 2 -> Wild, 3 -> Point10)), Column(Map(1 -> Wild, 2 -> FreeSpins, 3 -> Point10)), Column(Map(1 -> Point5, 2 -> Point10, 3 -> Point10)), Column(Map(1 -> Point10, 2 -> Point10, 3 -> Point5))))
+  val point5RowScreen: Reel = Reel(List(Column(Map(1 -> Point5, 2 -> NoSymbol, 3 -> NoSymbol)), Column(Map(1 -> Point5, 2 -> NoSymbol, 3 -> NoSymbol)), Column(Map(1 -> Point5, 2 -> NoSymbol, 3 -> NoSymbol)), Column(Map(1 -> NoSymbol, 2 -> NoSymbol, 3 -> NoSymbol)), Column(Map(1 -> NoSymbol, 2 -> NoSymbol, 3 -> NoSymbol))))
+  val customScreen: Reel = Reel(List(Column(Map(1 -> Action, 2 -> Sword, 3 -> Point5)), Column(Map(1 -> Point5, 2 -> Wild, 3 -> Point10)), Column(Map(1 -> Wild, 2 -> FreeSpins, 3 -> Point10)), Column(Map(1 -> Point5, 2 -> Point10, 3 -> Point10)), Column(Map(1 -> Point10, 2 -> Point10, 3 -> Point5))))
   val playerLogin: Login = Login("masana")
   val playerLogin2: Login = Login("masana234")
   val customStage: Stage = Stage(2, 3, Enemy(Mob, 2, 1, 0), Hero(2, 1, Ammunition(0, 2, 0, 0, 0)), 1)

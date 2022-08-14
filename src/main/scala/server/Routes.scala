@@ -17,12 +17,13 @@ import java.time.temporal.ChronoUnit
 import server.utils.CheckSyntax._
 import server.service.Doobie._
 import cats.implicits.catsSyntaxSemigroup
-import game.PRG.createNewStage
+import game.RPG.createNewStage
 import game.Slot
 import io.circe.Json
 import io.circe.parser._
 import io.circe.syntax.EncoderOps
 import game.models.MiniGameObjects._
+import game.models.SlotObjects.SlotExit
 
 import scala.concurrent.ExecutionContext
 
@@ -33,29 +34,22 @@ object Routes {
   import server.json.MessageJson._
   import org.http4s.circe.CirceEntityCodec._
 
-  // valid Registration: curl -X POST -H "Content-Type:application/json" -d "{\"mail\":{\"value\":\"d\"}, \"player\":{\"login\": {\"value\": \"masanata23123\"},\"password\": {\"value\": \"mig943g\"}}}" http://localhost:9001/authorization
-
-  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masana232\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
-
-  // valid LogIn: curl -X POST -H "Content-Type:application/json" -d "{\"login\": {\"value\": \"masanata23123\"},\"password\": {\"value\": \"mig943g\"}}" http://localhost:9001/authorization
-
-  //websocat ws://127.0.0.1:9001/message/"fc9a9be3-8830-4cc3-b909-c2eeef7d8b42&masana232"
-  //websocat ws://127.0.0.1:9001/message/"ff63a28f-4d59-49bf-a143-84bd2e58c83f&masana23"
-  //вход Bet: {"amount": "200"}
-  //вход Balance: {"message": "balance"}
-
   def messageRoute(topicGlobal: TopicGlobal, cache: Cache, rpgProgress: RPGProgress): HttpRoutes[IO] = {
 
     HttpRoutes.of[IO] {
-      case GET -> Root / "message" / id =>
+      case GET -> Root / "game" / id =>
 
         val token = Token(id)
 
         def verification: IO[Option[Login]] = cache.get.map(_.get(token)) map {
-          _ => Some(Login(token.id.split("&").reverse.head))
+          case Some(value) => Some(Login(token.id.split("&").reverse.head))
+          case None => None
         }
 
-        def spinRepeat(f: => IO[SlotExit], times: Int,  topicClient: TopicClient, count: Int = 1): IO[Int] = f.flatMap(win => IO(win.value) |+| (if (count >= times) IO(0) else spinRepeat(f, times, topicClient, count + 1)))
+        def spinRepeat(f: => IO[SlotExit], times: Int,  topicClient: TopicClient, count: Int = 1): IO[Int] = f.flatMap(
+          win => IO(win.value) |+|
+          (if (count >= times) IO(0) else spinRepeat(f, times, topicClient, count + 1))
+        )
 
         def doBet(bet: Bet, login: Login, topicClient: TopicClient, miniGameRef: MiniGameRef): IO[String] = {
           for {
@@ -63,7 +57,7 @@ object Routes {
             slot = Slot(bet, login, topicClient, rpgProgress, spirit)
             _ <- updateBalance(-bet.amount, login)
             bal <- getBalance(login)
-            _ <- topicClient.publish1(BalanceOut(bal).asJson.noSpaces)
+            _ <- topicClient.publish1(BalanceOutput(bal).asJson.noSpaces)
             slotExit <- slot.spin
             winFree <- if (slotExit.freeSpins) spinRepeat(slot.spin, 10, topicClient)
                 else IO(0)
@@ -71,7 +65,7 @@ object Routes {
               else IO.unit
             _ <- updateBalance(slotExit.value + winFree, login)
             balanceAfterWin <- getBalance(login)
-          } yield BalanceOut(balanceAfterWin).asJson.noSpaces
+          } yield BalanceOutput(balanceAfterWin).asJson.noSpaces
         }
 
         def changeSpirit(miniGameRef: MiniGameRef, spirit: MiniGameUnit): IO[Unit] =
@@ -109,9 +103,9 @@ object Routes {
           )
 
         for {
-          topicClient <- Topic[IO, String]("Client")
+          topicClient <- Topic[IO, String]("")
           res <- verification.flatMap {
-            case None => BadRequest()
+            case None => BadRequest(ErrorMessage("You are not Sign In"))
             case Some(name) => for {
               miniGameRef <- Ref[IO].of[MiniGameUnit](Leaf)
               _ <- rpgProgress.modify{
@@ -144,7 +138,7 @@ object Routes {
             message <- req.as[MessageIn]
             resp <- message match {
               case newPlayer: NewPlayer => newPlayer.player.checkSyntax match {
-                case Right(_) => createPlayer(newPlayer.player) *> Ok()
+                case Right(_) => createPlayer(newPlayer.player) *> Ok(Message("Greetings"))
                 case Left(err) => BadRequest(ErrorMessage(err))
               }
               case player: Player => player.checkSyntax match {

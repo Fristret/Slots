@@ -11,11 +11,13 @@ object CheckSyntax {
   implicit val mailSyntax: Syntax[Mail] = (mail: Mail) => if (mail.value.matches("[a-zA-Z0-9]+@[a-z]+[.][a-z]+")) Right(())
   else Left("Wrong mail")
 
-  implicit val loginSyntax: Syntax[Login] = (login: Login) => if (login.value.length >= 3 && login.value.length <= 15 && login.value.matches("[a-zA-Z0-9]+")) Right(())
-  else Left("Wrong login")
+  implicit val loginSyntax: Syntax[Login] = (login: Login) =>
+    if (login.value.length >= 3 && login.value.length <= 15 && login.value.matches("[a-zA-Z0-9]+")) Right(())
+    else Left("Wrong login")
 
-  implicit val passwordSyntax: Syntax[Password] = (password: Password) => if (password.value.length >= 6 && password.value.length <= 15 && password.value.matches("[a-zA-Z0-9]+")) Right(())
-  else Left("Wrong password")
+  implicit val passwordSyntax: Syntax[Password] = (password: Password) =>
+    if (password.value.length >= 6 && password.value.length <= 15 && password.value.matches("[a-zA-Z0-9]+")) Right(())
+    else Left("Wrong password")
 
   implicit val playerSyntax: Syntax[Player] = (player: Player) => player.login.checkSyntax match {
     case Right(_) => player.password.checkSyntax

@@ -9,16 +9,14 @@ scalacOptions ++= Seq(
 )
 
 val circeVersion = "0.13.0"
-val http4sVersion = "0.21.22"
+val http4sVersion = "0.21.33"
 val scalaTestVersion = "3.2.10"
 val doobieVersion = "0.13.4"
 val NewTypeVersion = "0.4.4"
 val catsVersion = "2.6.1"
-val catsEffectVersion = "2.5.1"
 
 libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-core" % catsVersion,
-  "org.typelevel" %% "cats-effect" % catsEffectVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-generic-extras" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,

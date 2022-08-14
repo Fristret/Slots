@@ -6,14 +6,13 @@ import cats.implicits._
 import fs2.concurrent.Topic
 import game.models.SlotObjects._
 import game.utils.RNG
-import io.circe.syntax.EncoderOps
-import server.models.Protocol.MiniGameOut
-import server.json.MessageJson._
 import game.models.MiniGameObjects._
+import io.circe.syntax.EncoderOps
+import server.json.MessageJson.miniGameOutputEncoder
 
 
 trait SlotMiniGame[F[_]] {
-  def play: F[List[Element]]
+  def play: F[List[Symbol]]
 }
 
 object SlotMiniGame {
@@ -31,25 +30,25 @@ object SlotMiniGame {
       }
     }
 
-    def play: F[List[Element]] = for {
+    def play: F[List[Symbol]] = for {
       enemy <- generateUnitEnemy
       res = hero match {
         case Leaf | ZaWarudo => enemy match {
           case Water => List(Action)
-          case _ => List(NoElement)
+          case _ => List(NoSymbol)
         }
         case Water => enemy match {
           case Fire => List(Bag)
-          case _ => List(NoElement)
+          case _ => List(NoSymbol)
         }
         case Fire => enemy match {
           case Leaf => List(Sword, Sword, Sword)
-          case _ => List(NoElement)
+          case _ => List(NoSymbol)
         }
         case Air => List(Chest)
-        case _ => List(NoElement)
+        case _ => List(NoSymbol)
       }
-      _ <- topicClient.publish1(MiniGameOut(hero, enemy, res).asJson.noSpaces)
+      _ <- topicClient.publish1(MiniGameOutput(hero, enemy, res).asJson.noSpaces)
     } yield res
 
   }
